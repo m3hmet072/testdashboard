@@ -1,0 +1,6 @@
+/* Analytics page specific styles */
+/* Analytics primarily uses dashboard overview components and chart styles from base.css */
+
+.analytics-main-panel .chart-wrap {
+  min-height: 320px;
+}
