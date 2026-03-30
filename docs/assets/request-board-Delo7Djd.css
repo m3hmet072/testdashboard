@@ -175,6 +175,7 @@
     background: #fafafa;
     padding: 16px;
     display: grid;
+    height: fit-content;
     gap: 20px;
     cursor: pointer;
     transition: border-color .12s ease, background-color .12s ease, box-shadow .12s ease
