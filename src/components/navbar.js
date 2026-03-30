@@ -28,13 +28,8 @@ function pageIconMarkup(activePage) {
     `;
   }
 
-  if (activePage === "add-appointment") {
-    return `
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
-        <path d="M12 6v12M6 12h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/>
-      </svg>
-    `;
+  if (activePage === "addappointment") {
+    return `<img class="topbar-page-icon topbar-page-icon-addappointment" src="/sidebar-icons/addappointment.png" alt="Add Appointment icon">`;
   }
 
   if (activePage === "emails") {
@@ -92,6 +87,26 @@ function resolveDomain(garage) {
   };
 }
 
+function getPageIconImage(activePage) {
+  const ICON_BY_PAGE = {
+    dashboard: "dashboard",
+    calendar: "calender",
+    analytics: "analytics",
+    bookings: "appointment",
+    addappointment: "addappointment",
+    emails: "email",
+    completed: "succes",
+    werkbon: "werkbon",
+  };
+
+  const iconName = ICON_BY_PAGE[activePage];
+  if (!iconName) {
+    return null;
+  }
+
+  return `/sidebar-icons/${iconName}.png`;
+}
+
 export function createNavbar({ title, headerNote = "", garage, activePage = "dashboard" }) {
   const navbar = document.createElement("div");
   navbar.className = "topbar-stack";
@@ -102,27 +117,43 @@ export function createNavbar({ title, headerNote = "", garage, activePage = "das
   const safeDomainLabel = escapeHtml(domain.label);
   const safeDomainHref = escapeHtml(domain.href);
 
+  const pageIconSrc = getPageIconImage(activePage);
+  const pageIconElement = pageIconSrc
+    ? `<img class="topbar-page-icon topbar-page-icon-${escapeHtml(activePage)}" src="${pageIconSrc}" alt="${safeTitle} icon" />`
+    : `<span class="topbar-page-icon topbar-page-icon-${escapeHtml(activePage)}">${pageIconMarkup(activePage)}</span>`;
+
   navbar.innerHTML = `
     <header class="topbar">
       <div class="topbar-main-row">
         <label class="topbar-search" aria-label="Search">
-          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-            <circle cx="9" cy="9" r="5.5" fill="none" stroke="currentColor" stroke-width="1.5"></circle>
-            <path d="M13.2 13.2l3 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
-          </svg>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M11.3333 11.332L13.9999 13.9987" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333Z" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
           <input type="search" placeholder="Search..." />
         </label>
 
-        <a class="topbar-domain" href="${safeDomainHref}" target="_blank" rel="noreferrer">
-          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-            <rect x="2.8" y="4" width="14.4" height="12" rx="3" stroke="currentColor" stroke-width="1.4"></rect>
-            <path d="M6.4 8.5h7.2M6.4 11.5h5.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"></path>
-          </svg>
-          <span>${safeDomainLabel}</span>
-        </a>
+        <div class="topbar-domain">
+          <div class="topbar-domain-inner-left-side">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1.6665 8.0013C1.6665 5.01574 1.6665 3.52296 2.594 2.59546C3.5215 1.66797 5.01428 1.66797 7.99984 1.66797C10.9854 1.66797 12.4782 1.66797 13.4057 2.59546C14.3332 3.52296 14.3332 5.01574 14.3332 8.0013C14.3332 10.9868 14.3332 12.4796 13.4057 13.4072C12.4782 14.3346 10.9854 14.3346 7.99984 14.3346C5.01428 14.3346 3.5215 14.3346 2.594 13.4072C1.6665 12.4796 1.6665 10.9868 1.6665 8.0013Z" stroke="#666666"/>
+              <path d="M1.6665 6H14.3332" stroke="#666666" stroke-linejoin="round"/>
+              <path d="M4.6665 4H4.67249" stroke="#666666" stroke-width="1.33333" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M7.3335 4H7.3395" stroke="#666666" stroke-width="1.33333" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+
+            <a href="https://autoservicehoute.nl">https://${safeDomainLabel}</a>
+          </div>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M7.39917 2C4.96653 2.00438 3.69265 2.06411 2.87855 2.87835C2 3.75704 2 5.17128 2 7.99972C2 10.8282 2 12.2425 2.87855 13.1211C3.7571 13.9999 5.17111 13.9999 7.99917 13.9999C10.8271 13.9999 12.2412 13.9999 13.1197 13.1211C13.9338 12.3069 13.9935 11.0328 13.9979 8.59979" stroke="#666666" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M13.7039 2.33132L7.36572 8.7063M13.7039 2.33132C13.3746 2.00158 11.1561 2.03231 10.6871 2.03898M13.7039 2.33132C14.0333 2.66106 14.0025 4.88239 13.9959 5.352" stroke="#666666" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+
+        </div>
 
         <a class="topbar-add-link ${activePage === "add-appointment" ? "is-current" : ""}" href="/add-appointment.html">
-          <span class="topbar-add-link-icon" aria-hidden="true">+</span>
+          <img class="navbar-icon-add-appointment" src="/sidebar-icons/addappointment.png" alt="Email icon">
           <span>Add Appointment</span>
         </a>
       </div>
@@ -130,14 +161,14 @@ export function createNavbar({ title, headerNote = "", garage, activePage = "das
 
     <div class="topbar-title-row">
       <div class="topbar-title-wrap">
-        <span class="topbar-page-icon topbar-page-icon-${escapeHtml(activePage)}">
-          ${pageIconMarkup(activePage)}
-        </span>
+        ${pageIconElement}
         <h1 class="topbar-title">${safeTitle}</h1>
       </div>
-      ${safeHeaderNote ? `<p class="topbar-note">${safeHeaderNote}</p>` : ""}
     </div>
   `;
 
-  return navbar;
+  const header = navbar.querySelector('.topbar');
+  const titleRow = navbar.querySelector('.topbar-title-row');
+
+  return { header, titleRow };
 }

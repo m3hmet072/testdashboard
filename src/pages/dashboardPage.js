@@ -11,6 +11,7 @@ const SERVICE_LABEL_BY_KEY = {
   onderhoud: "Onderhoud",
   airco: "Airco",
   occasions: "Occasions",
+  brakes: "Brakes",
   other: "Overige",
 };
 
@@ -26,7 +27,12 @@ const SERVICE_KEY_ALIASES = new Map([
   ["onderhoud", "onderhoud"],
   ["maintenance", "onderhoud"],
   ["service", "onderhoud"],
+  ["brakes", "brakes"],
+  ["brake", "brakes"],
+  ["remmen", "brakes"],
 ]);
+
+const SERVICE_DISTRIBUTION_ORDER = ["apk", "banden", "onderhoud", "airco", "occasions", "brakes", "other"];
 
 function escapeHtml(value) {
   return String(value)
@@ -35,6 +41,12 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function formatLicensePlate(plate) {
+  const cleaned = String(plate ?? "").toUpperCase().replace(/[^A-Z0-9]/g, '');
+  // Format as: XX-XX-XX (groups of 2 separated by dashes)
+  return cleaned.replace(/(.{2})(?=.)/g, '$1-');
 }
 
 function parseDate(value) {
@@ -95,8 +107,7 @@ function splitServiceValues(service) {
   const parts = raw
     .split(raw.includes(",") ? /,/g : /\+|\/|&| and /gi)
     .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 3);
+    .filter(Boolean);
 
   return parts.length ? parts : [raw];
 }
@@ -140,20 +151,24 @@ function getStatusMeta(statusValue) {
 
 function scheduleRowsMarkup(bookings) {
   if (!bookings.length) {
-    return '<article class="schedule-row"><p class="muted">No appointments scheduled for today.</p></article>';
+    return '<article class="schedule-row-no"><p class="muted">No appointments scheduled for today.</p></article>';
   }
 
   return bookings
     .slice(0, 4)
     .map((booking) => {
-      const plate = escapeHtml(String(booking.licensePlate ?? "UNKNOWN").toUpperCase());
+      const plate = escapeHtml(booking.licensePlate && booking.licensePlate !== "UNKNOWN" ? formatLicensePlate(booking.licensePlate) : "UNKNOWN");
       const time = escapeHtml(formatTime(booking.appointmentAt ?? booking.createdAt));
       const statusMeta = getStatusMeta(booking.status);
 
       return `
         <article class="schedule-row">
           <div class="schedule-row-main">
-            <span class="schedule-time">${time}</span>
+            <span class="schedule-time"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M7.99992 14.6654C11.6818 14.6654 14.6666 11.6806 14.6666 7.9987C14.6666 4.3168 11.6818 1.33203 7.99992 1.33203C4.31802 1.33203 1.33325 4.3168 1.33325 7.9987C1.33325 11.6806 4.31802 14.6654 7.99992 14.6654Z" stroke="#333333" stroke-width="1.25"/>
+<path d="M8 5.33203V7.9987L9.33333 9.33203" stroke="#333333" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+${time}</span>
             <span class="plate-chip">${plate}</span>
             <div class="request-services">${serviceChipsMarkup(booking.service)}</div>
           </div>
@@ -165,17 +180,30 @@ function scheduleRowsMarkup(bookings) {
 }
 
 function buildServiceDistribution(bookings) {
-  const counts = new Map();
+  const counts = new Map(SERVICE_DISTRIBUTION_ORDER.map((key) => [key, 0]));
 
   for (const booking of bookings) {
-    const firstToken = splitServiceValues(booking.service)[0] ?? "other";
-    const key = normalizeServiceKey(firstToken);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    const serviceKeys = new Set(splitServiceValues(booking.service).map((token) => normalizeServiceKey(token)));
+
+    if (!serviceKeys.size) {
+      serviceKeys.add("other");
+    }
+
+    for (const key of serviceKeys) {
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
   }
 
-  const entries = [...counts.entries()]
-    .sort((left, right) => right[1] - left[1])
-    .slice(0, 6);
+  const entries = SERVICE_DISTRIBUTION_ORDER
+    .map((key, index) => ({ key, count: counts.get(key) ?? 0, index }))
+    .filter((entry) => entry.count > 0)
+    .sort((left, right) => {
+      if (right.count !== left.count) {
+        return right.count - left.count;
+      }
+
+      return left.index - right.index;
+    });
 
   if (!entries.length) {
     return {
@@ -185,12 +213,12 @@ function buildServiceDistribution(bookings) {
     };
   }
 
-  const total = entries.reduce((sum, [, count]) => sum + count, 0);
+  const total = entries.reduce((sum, entry) => sum + entry.count, 0);
 
   return {
-    labels: entries.map(([key]) => SERVICE_LABEL_BY_KEY[key] ?? SERVICE_LABEL_BY_KEY.other),
-    values: entries.map(([, count]) => count),
-    legend: entries.map(([key, count]) => ({
+    labels: entries.map(({ key }) => SERVICE_LABEL_BY_KEY[key] ?? SERVICE_LABEL_BY_KEY.other),
+    values: entries.map(({ count }) => count),
+    legend: entries.map(({ key, count }) => ({
       key,
       label: SERVICE_LABEL_BY_KEY[key] ?? SERVICE_LABEL_BY_KEY.other,
       percentage: Math.round((count / total) * 100),
@@ -250,17 +278,24 @@ export async function mountDashboardPage(rootElement) {
 
   contentArea.innerHTML = `
     <section class="metrics-grid">
-      <article class="metric-card"><p>Total Appointments</p><h2 id="metricTotal">0</h2></article>
-      <article class="metric-card"><p>Today’s Schedule</p><h2 id="metricToday">0</h2></article>
-      <article class="metric-card"><p>Completed</p><h2 id="metricCompleted">0</h2></article>
-      <article class="metric-card"><p>Pending Emails</p><h2 id="metricEmails">0</h2></article>
+      <article class="metric-card"><div><p>Total Appointments</p><img src="/sidebar-icons/appointment.png" alt="Appointment icon"></div><h2 id="metricTotal">0</h2><p class="subtext">All appointments</p></article>
+      <div class="metric-divider"></div>
+      <article class="metric-card"><div><p>Today’s Schedule</p><img src="/sidebar-icons/calender.png" alt="Calendar icon"></div><h2 id="metricToday">0</h2><p class="subtext">Today's schedule</p></article>
+      <div class="metric-divider"></div>
+      <article class="metric-card"><div><p>Completed</p><img src="/sidebar-icons/succes.png" alt="Success icon"></div><h2 id="metricCompleted">0</h2><p class="subtext">Completed appointments</p></article>
+      <div class="metric-divider"></div>
+      <article class="metric-card"><div><p>Pending Emails</p><img src="/sidebar-icons/email.png" alt="Email icon"></div><h2 id="metricEmails">0</h2><p class="subtext">Yet to read</p></article>
     </section>
 
     <section class="dashboard-main-grid">
       <section class="panel dashboard-schedule-panel">
         <div class="panel-heading spread">
           <h3>Today’s Schedule</h3>
-          <a class="panel-link" href="/bookings.html">View All →</a>
+          <a class="panel-link" href="/bookings.html">View All <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M12.3335 8H3.3335" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M8.6665 12C8.6665 12 12.6665 9.05407 12.6665 8C12.6665 6.94587 8.6665 4 8.6665 4" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+</a>
         </div>
         <div id="dashboardScheduleList" class="dashboard-schedule-list"></div>
       </section>

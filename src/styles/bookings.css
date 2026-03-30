@@ -64,7 +64,7 @@
 }
 
 .booking-page-button {
-  border: 1px solid var(--line);
+  border: 1px solid var(--e6e6e6);
   border-radius: 9px;
   background: #ffffff;
   color: #344054;
@@ -166,8 +166,8 @@
 }
 
 .booking-select:focus {
-  outline: 2px solid rgba(var(--brand-primary-rgb), 0.25);
-  border-color: rgba(var(--brand-primary-rgb), 0.5);
+  outline: 2px solid rgba(0, 130, 251, 0.25);
+  border-color: rgba(0, 130, 251, 0.5);
 }
 
 .bookings-layout {
@@ -215,7 +215,7 @@
 }
 
 .booking-row:focus-visible {
-  outline: 2px solid rgba(var(--brand-primary-rgb), 0.45);
+  outline: 2px solid rgba(0, 130, 251, 0.45);
   outline-offset: 2px;
 }
 
@@ -411,7 +411,7 @@
 }
 
 .booking-phone {
-  color: var(--ink);
+  color: var(--333333);
   font-size: 0.82rem;
   font-weight: 600;
   min-width: 0;
@@ -421,7 +421,7 @@
 }
 
 .booking-submitted {
-  color: var(--muted);
+  color: var(--666666);
   font-size: 0.77rem;
   min-width: 0;
   white-space: nowrap;
@@ -511,15 +511,15 @@
 }
 
 .booking-row-empty {
-  border: 1px dashed var(--line);
+  border: 1px dashed var(--e6e6e6);
   border-radius: 12px;
   padding: 0.85rem;
-  color: var(--muted);
+  color: var(--666666);
   text-align: center;
 }
 
 .booking-detail {
-  border: 1px solid var(--line);
+  border: 1px solid var(--e6e6e6);
   border-radius: 12px;
   background: #f8faff;
   padding: 0.72rem;
@@ -606,7 +606,7 @@
   font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--666666);
 }
 
 .booking-detail-services {
@@ -629,7 +629,7 @@
 .booking-detail-grid dt {
   margin: 0;
   font-size: 0.74rem;
-  color: var(--muted);
+  color: var(--666666);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }

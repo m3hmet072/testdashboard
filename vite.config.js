@@ -10,6 +10,8 @@ export default defineConfig({
         calendar: resolve(__dirname, "calendar.html"),
         bookings: resolve(__dirname, "bookings.html"),
         completed: resolve(__dirname, "completed.html"),
+        werkbon: resolve(__dirname, "werkbon.html"),
+          werkbonDetail: resolve(__dirname, "werkbon-detail.html"),
         addAppointment: resolve(__dirname, "add-appointment.html"),
         emails: resolve(__dirname, "emails.html"),
         analytics: resolve(__dirname, "analytics.html"),

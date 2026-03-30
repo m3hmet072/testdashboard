@@ -15,6 +15,16 @@ import {
 
 const SERVICE_OPTIONS = ["APK", "Banden", "Onderhoud", "Airco", "Overige", "Occasions", "Brakes"];
 
+const SERVICE_KEY_BY_LABEL = {
+  apk: "apk",
+  banden: "banden",
+  onderhoud: "onderhoud",
+  airco: "airco",
+  overige: "other",
+  occasions: "occasions",
+  brakes: "brakes",
+};
+
 function toDateInputValue(date) {
   return date.toISOString().slice(0, 10);
 }
@@ -37,10 +47,10 @@ function fallbackVehiclePreview(licensePlate = "") {
 
   return {
     title: normalized ? `${normalized}` : "Voertuig gegevens",
-    buildYear: "—",
-    apkExpiryDate: "—",
-    color: "—",
-    fuel: "—",
+    buildYear: "",
+    apkExpiryDate: "",
+    color: "",
+    fuel: "",
   };
 }
 
@@ -70,7 +80,7 @@ export async function mountAddAppointmentPage(rootElement) {
   const manualGarageId = authState.activeGarage?.id ?? authState.garages?.[0]?.id ?? "";
 
   const { shell, contentArea, setUnreadEmailCount } = createAppShell({
-    activePage: "add-appointment",
+    activePage: "addappointment",
     title: "Add Appointment",
     headerNote: "Create a booking manually",
     userEmail: authState.user.email,
@@ -80,6 +90,12 @@ export async function mountAddAppointmentPage(rootElement) {
   });
 
   rootElement.replaceChildren(shell);
+
+  const toastRegion = document.createElement("div");
+  toastRegion.className = "appointment-toast-region";
+  toastRegion.setAttribute("aria-live", "polite");
+  toastRegion.setAttribute("aria-atomic", "true");
+  shell.append(toastRegion);
 
   const defaultDateTime = nextHalfHour();
 
@@ -100,18 +116,18 @@ export async function mountAddAppointmentPage(rootElement) {
 
         <label>
           License Plate
-          <input id="manualLicensePlate" name="licensePlate" type="text" autocomplete="off" placeholder="eg. 12-ABC-D1" required />
+          <input id="manualLicensePlate" name="licensePlate" type="text"  placeholder="eg. 12-ABC-D1" required />
         </label>
 
         <div class="vehicle-preview-card" id="vehiclePreviewCard">
-          <p id="vehiclePreviewTitle">Vehicle preview</p>
+          <p id="vehiclePreviewTitle" class="request-vehicle">Vehicle preview</p>
           <div class="vehicle-preview-meta">
-            <span>Bouwjaar: <strong id="vehiclePreviewBuildYear">—</strong></span>
-            <span>APK verloopt op: <strong id="vehiclePreviewApk">—</strong></span>
+            <span>Bouwjaar: <strong id="vehiclePreviewBuildYear"></strong></span>
+            <span>APK verloopt op: <strong id="vehiclePreviewApk"></strong></span>
           </div>
           <div class="vehicle-preview-meta">
-            <span>Kleur: <strong id="vehiclePreviewColor">—</strong></span>
-            <span>Brandstof: <strong id="vehiclePreviewFuel">—</strong></span>
+            <span>Kleur: <strong id="vehiclePreviewColor"></strong></span>
+            <span>Brandstof: <strong id="vehiclePreviewFuel"></strong></span>
           </div>
         </div>
 
@@ -141,18 +157,31 @@ export async function mountAddAppointmentPage(rootElement) {
           </div>
         </div>
 
-        <fieldset class="service-selector-group">
-          <legend>Service</legend>
+        <div class="service-selector-group" role="group" aria-label="Service">
+          <span class="service-selector-label">Service</span>
           <div class="service-selector-options">
             ${SERVICE_OPTIONS.map((service, index) => {
               const checked = index === 0 ? "checked" : "";
-              return `<label><input type="checkbox" name="services" value="${service}" ${checked} /> ${service}</label>`;
+              const serviceKey = SERVICE_KEY_BY_LABEL[String(service).toLowerCase()] ?? "other";
+              return `
+                <label class="service-option service-option-${serviceKey}">
+                  <input type="checkbox" name="services" value="${service}" ${checked} />
+                  <span class="service-option-ui">
+                    <span class="service-option-check" aria-hidden="true">
+                      <svg viewBox="0 0 16 16" fill="none">
+                        <path d="M3.5 8.2L6.7 11.2L12.5 5.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                      </svg>
+                    </span>
+                    <span class="service-option-text">${service}</span>
+                  </span>
+                </label>
+              `;
             }).join("")}
           </div>
-        </fieldset>
+        </div>
 
         <div class="manual-appointment-actions">
-          <button type="submit" class="button">Add Appointment</button>
+          <button type="submit" class="button">Save Appointment</button>
           <p id="manualAppointmentStatus" class="status-text" role="status" aria-live="polite"></p>
         </div>
       </form>
@@ -215,6 +244,92 @@ export async function mountAddAppointmentPage(rootElement) {
     }
   };
 
+  let toastHideTimerId = 0;
+  let toastCleanupTimerId = 0;
+
+  const clearToastTimers = () => {
+    if (toastHideTimerId) {
+      window.clearTimeout(toastHideTimerId);
+      toastHideTimerId = 0;
+    }
+
+    if (toastCleanupTimerId) {
+      window.clearTimeout(toastCleanupTimerId);
+      toastCleanupTimerId = 0;
+    }
+  };
+
+  const dismissToast = () => {
+    const toast = toastRegion.querySelector(".appointment-toast");
+    if (!toast) {
+      toastRegion.innerHTML = "";
+      clearToastTimers();
+      return;
+    }
+
+    toast.classList.remove("is-visible");
+    if (toastCleanupTimerId) {
+      window.clearTimeout(toastCleanupTimerId);
+    }
+    toastCleanupTimerId = window.setTimeout(() => {
+      toastRegion.innerHTML = "";
+      toastCleanupTimerId = 0;
+    }, 220);
+  };
+
+  const showToast = (message, tone = "success") => {
+    if (!(toastRegion instanceof HTMLElement)) {
+      return;
+    }
+
+    clearToastTimers();
+
+    const safeTone = tone === "error" || tone === "warning" ? tone : "success";
+    const iconMarkup = safeTone === "success"
+      ? `<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.2 8.3L6.6 11.4L12.8 4.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>`
+      : safeTone === "error"
+        ? `<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M5 5L11 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path><path d="M11 5L5 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>`
+        : `<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3V9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path><circle cx="8" cy="12" r="1" fill="currentColor"></circle></svg>`;
+
+    const toastTitle = safeTone === "success"
+      ? "Saved Successfully"
+      : safeTone === "error"
+        ? "Error Occurred"
+        : "Action Required";
+
+    toastRegion.innerHTML = `
+      <div class="appointment-toast appointment-toast-${safeTone} is-visible" role="status">
+        <span class="appointment-toast-icon">${iconMarkup}</span>
+        <div class="appointment-toast-copy">
+          <p class="appointment-toast-title">${toastTitle}</p>
+          <p class="appointment-toast-message">${String(message ?? "")}</p>
+        </div>
+        <button class="appointment-toast-close" type="button" aria-label="Dismiss notification">
+          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M4.5 4.5L11.5 11.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+            <path d="M11.5 4.5L4.5 11.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+          </svg>
+        </button>
+      </div>
+    `;
+
+    toastHideTimerId = window.setTimeout(() => {
+      dismissToast();
+      toastHideTimerId = 0;
+    }, 311000);
+  };
+
+  toastRegion.addEventListener("click", (event) => {
+    const closeButton = event.target instanceof Element
+      ? event.target.closest(".appointment-toast-close")
+      : null;
+
+    if (closeButton) {
+      clearToastTimers();
+      dismissToast();
+    }
+  });
+
   const refreshSidebarInbox = async () => {
     try {
       const bookings = await getBookings({ garageIds });
@@ -237,7 +352,9 @@ export async function mountAddAppointmentPage(rootElement) {
       return;
     }
 
-    vehiclePreviewTitle.textContent = preview.title;
+    vehiclePreviewTitle.textContent = preview.buildYear && preview.buildYear !== "" 
+      ? `${preview.title} (${preview.buildYear})`
+      : preview.title;
     vehiclePreviewBuildYear.textContent = preview.buildYear;
     vehiclePreviewApk.textContent = preview.apkExpiryDate;
     vehiclePreviewColor.textContent = preview.color;
@@ -320,6 +437,7 @@ export async function mountAddAppointmentPage(rootElement) {
 
     if (!manualGarageId) {
       setStatus("No garage available for manual appointment creation.", "warning");
+      showToast("No garage available for manual appointment creation.", "warning");
       return;
     }
 
@@ -331,6 +449,7 @@ export async function mountAddAppointmentPage(rootElement) {
 
     if (!selectedServices.length) {
       setStatus("Select at least one service.", "warning");
+      showToast("Select at least one service.", "warning");
       return;
     }
 
@@ -346,6 +465,7 @@ export async function mountAddAppointmentPage(rootElement) {
 
     if (!customerName || !licensePlate || !phone || !date || !time) {
       setStatus("Please fill all required fields.", "warning");
+      showToast("Please fill all required fields.", "warning");
       return;
     }
 
@@ -381,10 +501,13 @@ export async function mountAddAppointmentPage(rootElement) {
       plateLookupAbortController?.abort();
       renderVehiclePreview(fallbackVehiclePreview());
 
-      setStatus("Appointment added successfully.");
+      setStatus("");
+      showToast("Appointment added successfully.", "success");
       await refreshSidebarInbox();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Unable to add appointment.", "error");
+      const message = error instanceof Error ? error.message : "Unable to add appointment.";
+      setStatus(message, "error");
+      showToast(message, "error");
     } finally {
       if (submitButton instanceof HTMLButtonElement && manualGarageId) {
         submitButton.disabled = false;

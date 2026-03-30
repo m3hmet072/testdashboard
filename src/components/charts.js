@@ -1,5 +1,27 @@
 import Chart from "chart.js/auto";
 
+const SERVICE_COLOR_VAR_BY_KEY = {
+  apk: "--apk",
+  banden: "--banden",
+  onderhoud: "--onderhoud",
+  airco: "--airco",
+  occasions: "--occasion",
+  brakes: "--brakes",
+  other: "--other",
+};
+
+const SERVICE_KEY_BY_LABEL = {
+  apk: "apk",
+  banden: "banden",
+  onderhoud: "onderhoud",
+  airco: "airco",
+  occasions: "occasions",
+  brakes: "brakes",
+  overige: "other",
+  other: "other",
+  "no data": "other",
+};
+
 function getTheme() {
   const rootStyles = getComputedStyle(document.documentElement);
 
@@ -28,6 +50,14 @@ function getTheme() {
     chartText,
     chartGrid,
   };
+}
+
+function getServiceColor(rootStyles, label, fallbackColor) {
+  const normalizedLabel = String(label ?? "").trim().toLowerCase();
+  const serviceKey = SERVICE_KEY_BY_LABEL[normalizedLabel] ?? "other";
+  const cssVariableName = SERVICE_COLOR_VAR_BY_KEY[serviceKey] ?? SERVICE_COLOR_VAR_BY_KEY.other;
+
+  return rootStyles.getPropertyValue(cssVariableName).trim() || fallbackColor;
 }
 
 function createBaseOptions(theme) {
@@ -153,6 +183,8 @@ export function createBarChart(canvas, labels, values, datasetLabel) {
 
 export function createDoughnutChart(canvas, labels, values) {
   const theme = getTheme();
+  const rootStyles = getComputedStyle(document.documentElement);
+  const backgroundColors = labels.map((label) => getServiceColor(rootStyles, label, theme.primary));
 
   return new Chart(canvas, {
     type: "doughnut",
@@ -161,21 +193,27 @@ export function createDoughnutChart(canvas, labels, values) {
       datasets: [
         {
           data: values,
-          backgroundColor: [theme.primary, theme.secondary],
+          backgroundColor: backgroundColors,
           borderWidth: 0,
+          hoverOffset: 8,
         },
       ],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      cutout: "68%",
       plugins: {
         legend: {
-          position: "bottom",
-          labels: {
-            color: theme.chartText,
-            usePointStyle: true,
-            pointStyle: "circle",
+          display: false,
+        },
+        tooltip: {
+          callbacks: {
+            label(context) {
+              const label = String(context.label ?? "");
+              const value = Number(context.parsed ?? 0);
+              return `${label}: ${value}`;
+            },
           },
         },
       },

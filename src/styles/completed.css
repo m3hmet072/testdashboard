@@ -4,3 +4,8 @@
 .completed-board {
   padding: 0.9rem;
 }
+.time-done-box{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

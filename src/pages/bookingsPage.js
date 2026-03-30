@@ -7,8 +7,10 @@ import {
   persistBookingStatus,
 } from "../services/bookingService.js";
 import { summarizeEmailInbox } from "../services/emailService.js";
+import { fetchVehicleByLicensePlate, normalizeLicensePlate } from "../services/rdwService.js";
 import { ensureAuthenticated, logoutAndRedirect } from "../utils/auth.js";
 import { applyGarageBranding } from "../utils/branding.js";
+import { showConfirmDialog } from "../utils/confirmDialog.js";
 import {
   formatScheduleDateLabel,
   handleScheduleTimePickerInteraction,
@@ -26,13 +28,13 @@ const FALLBACK_NAMES = [
   "Mila Verbeek",
 ];
 
-const FALLBACK_VEHICLES = [
-  "Toyota Corolla (2021)",
-  "Mercedes C-Klasse (2018)",
-  "Audi A3 (2020)",
-  "Volkswagen Golf (2019)",
-  "BMW 1 Series (2017)",
-];
+function fallbackVehiclePreview(licensePlate = "") {
+  const normalized = normalizeLicensePlate(licensePlate);
+  return {
+    title: normalized || "Unknown vehicle",
+    buildYear: "",
+  };
+}
 
 const SERVICE_LABEL_BY_KEY = {
   apk: "APK",
@@ -40,6 +42,7 @@ const SERVICE_LABEL_BY_KEY = {
   onderhoud: "Onderhoud",
   airco: "Airco",
   occasions: "Occasions",
+  brakes: "Brakes",
   other: "Overige",
 };
 
@@ -55,6 +58,9 @@ const SERVICE_KEY_ALIASES = new Map([
   ["onderhoud", "onderhoud"],
   ["maintenance", "onderhoud"],
   ["service", "onderhoud"],
+  ["brakes", "brakes"],
+  ["brake", "brakes"],
+  ["remmen", "brakes"],
 ]);
 
 function escapeHtml(value) {
@@ -64,6 +70,12 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function formatLicensePlate(plate) {
+  const cleaned = String(plate ?? "").toUpperCase().replace(/[^A-Z0-9]/g, '');
+  // Format as: XX-XX-XX (groups of 2 separated by dashes)
+  return cleaned.replace(/(.{2})(?=.)/g, '$1-');
 }
 
 function parseDate(value) {
@@ -175,8 +187,7 @@ function splitServiceValues(service) {
   const parts = raw
     .split(raw.includes(",") ? /,/g : /\+|\/|&| and /gi)
     .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 3);
+    .filter(Boolean);
 
   return parts.length ? parts : [raw];
 }
@@ -199,7 +210,7 @@ function serviceChipsMarkup(service) {
     .join("");
 }
 
-function requestCardsMarkup(bookings, expandedBookingId, editingBookingId) {
+function requestCardsMarkup(bookings, expandedBookingId, editingBookingId, vehicleCache) {
   if (!bookings.length) {
     return '<article class="request-card"><p class="muted">No appointments found for this filter.</p></article>';
   }
@@ -210,9 +221,13 @@ function requestCardsMarkup(bookings, expandedBookingId, editingBookingId) {
       const isExpanded = expandedBookingId === bookingId;
       const isEditing = editingBookingId === bookingId;
       const appointmentAt = booking.appointmentAt ?? booking.createdAt;
-      const plate = escapeHtml(String(booking.licensePlate ?? "UNKNOWN").toUpperCase());
+      const plate = escapeHtml(booking.licensePlate && booking.licensePlate !== "UNKNOWN" ? formatLicensePlate(booking.licensePlate) : "UNKNOWN");
       const name = escapeHtml(customerName(booking, index));
-      const vehicle = escapeHtml(customerVehicle(index));
+      const licensePlateKey = booking.licensePlate ? normalizeLicensePlate(booking.licensePlate) : "";
+      const vehicleData = vehicleCache.get(licensePlateKey) || fallbackVehiclePreview(booking.licensePlate);
+      const vehicle = vehicleData.buildYear && vehicleData.buildYear !== "—"
+        ? `${vehicleData.title} (${vehicleData.buildYear})`
+        : vehicleData.title;
       const time = escapeHtml(formatTime(appointmentAt));
       const scheduleDate = normalizeDateValue(toDateInputValue(appointmentAt));
       const safeScheduleDate = escapeHtml(scheduleDate);
@@ -236,23 +251,48 @@ function requestCardsMarkup(bookings, expandedBookingId, editingBookingId) {
 
             <div class="request-meta">
               <span class="request-time">${time}</span>
-              <button class="request-toggle" type="button" data-request-toggle="${escapeHtml(bookingId)}">${isExpanded ? "⌃" : "⌄"}</button>
+       <button
+                class="request-toggle ${isExpanded ? "is-expanded" : ""}"
+                type="button"
+                data-calendar-toggle="${escapeHtml(bookingId)}"
+                aria-expanded="${isExpanded ? "true" : "false"}"
+                aria-label="${isExpanded ? "Collapse appointment details" : "Expand appointment details"}"
+              >
+                <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                  <path d="M5.5 8.2L10 12.8L14.5 8.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
             </div>
           </div>
 
-          ${
-            isExpanded
-              ? `
+          ${isExpanded
+          ? `
+            <div class="request-divider"></div>
             <div class="request-expanded">
               <div class="request-expanded-grid">
-                <div class="request-contact-box">${phone}</div>
-                <div class="request-message-box">${message}</div>
+                <div class="request-contact-box">
+                  <div class="request-box-label">
+                    <img src="/sidebar-icons/user.png" alt="" aria-hidden="true" />
+                    <span>Phone Number</span>
+                  </div>
+                  <div class="request-box-divider"></div>
+                  <span>${phone}</span>
+                </div>
+                <div class="request-message-box">
+                  <div class="request-box-label">
+                    <img src="/sidebar-icons/text.png" alt="" aria-hidden="true" />
+                    <span>Message from client</span>
+                  </div>
+                  <div class="request-box-divider"></div>
+                  <span>${message}</span>
+                </div>
               </div>
 
               <div class="request-actions">
-                ${
-                  isEditing
-                    ? `
+                ${isEditing
+            ? `
                   <div class="request-edit-schedule">
                     <label class="request-edit-field">
                       <span>Date</span>
@@ -300,17 +340,29 @@ function requestCardsMarkup(bookings, expandedBookingId, editingBookingId) {
                     <button class="button subtle" type="button" data-request-action="cancel-edit" data-booking-id="${escapeHtml(bookingId)}">Cancel</button>
                   </div>
                 `
-                    : ""
-                }
+            : ""
+          }
 
                 <button class="icon-button" type="button" data-request-action="edit" data-booking-id="${escapeHtml(bookingId)}" aria-label="Edit booking">✎</button>
-                <button class="button" type="button" data-request-action="complete" data-booking-id="${escapeHtml(bookingId)}">Completed</button>
-                <button class="button danger" type="button" data-request-action="delete" data-booking-id="${escapeHtml(bookingId)}">Delete</button>
+                ${!isEditing
+            ? `<button class="button" type="button" data-request-action="complete" data-booking-id="${escapeHtml(bookingId)}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M2 9.25L5.75 13L14 4" stroke="white" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+ Mark Completed</button>
+                <button class="button danger" type="button" data-request-action="delete" data-booking-id="${escapeHtml(bookingId)}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M13 3.66797L12.5869 10.3514C12.4813 12.0589 12.4285 12.9127 12.0005 13.5266C11.7889 13.83 11.5165 14.0862 11.2005 14.2786C10.5614 14.668 9.706 14.668 7.99513 14.668C6.28208 14.668 5.42553 14.668 4.78603 14.2779C4.46987 14.0851 4.19733 13.8285 3.98579 13.5245C3.55792 12.9097 3.5063 12.0547 3.40307 10.3448L3 3.66797" stroke="white" stroke-linecap="round"/>
+<path d="M2 3.66536H14M10.7038 3.66536L10.2487 2.72652C9.9464 2.10287 9.7952 1.79104 9.53447 1.59657C9.47667 1.55343 9.4154 1.51506 9.35133 1.48183C9.0626 1.33203 8.71607 1.33203 8.023 1.33203C7.31253 1.33203 6.95733 1.33203 6.66379 1.48811C6.59873 1.5227 6.53665 1.56263 6.47819 1.60748C6.21443 1.80983 6.06709 2.13306 5.77241 2.77954L5.36861 3.66536" stroke="white" stroke-linecap="round"/>
+<path d="M6.3335 11V7" stroke="white" stroke-linecap="round"/>
+<path d="M9.6665 11V7" stroke="white" stroke-linecap="round"/>
+</svg>
+Delete</button>`
+            : ""
+          }
               </div>
             </div>
           `
-              : ""
-          }
+          : ""
+        }
         </article>
       `;
     })
@@ -334,6 +386,138 @@ function buildTechnicianOptions(bookings) {
   });
 
   return [...options.values()];
+}
+
+function setupCustomRequestSelects(rootElement) {
+  const selectEntries = [];
+
+  const closeAll = () => {
+    selectEntries.forEach((entry) => {
+      entry.wrap.classList.remove("is-open");
+      entry.trigger.setAttribute("aria-expanded", "false");
+    });
+  };
+
+  const buildIconMarkup = () => `
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 6C4 6 6.94593 9.99999 8 10C9.05413 10 12 6 12 6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  `;
+
+  rootElement.querySelectorAll(".request-select-wrap").forEach((wrap) => {
+    const nativeSelect = wrap.querySelector(".request-select");
+    if (!(nativeSelect instanceof HTMLSelectElement)) {
+      return;
+    }
+
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "request-select-trigger";
+    trigger.setAttribute("aria-haspopup", "listbox");
+    trigger.setAttribute("aria-expanded", "false");
+
+    const label = document.createElement("span");
+    label.className = "request-select-trigger-label";
+
+    const icon = document.createElement("span");
+    icon.className = "request-select-trigger-icon";
+    icon.innerHTML = buildIconMarkup();
+
+    trigger.append(label, icon);
+
+    const menu = document.createElement("div");
+    menu.className = "request-select-menu";
+    menu.setAttribute("role", "listbox");
+
+    wrap.append(trigger, menu);
+
+    const updateLabel = () => {
+      const selectedOption = nativeSelect.options[nativeSelect.selectedIndex];
+      label.textContent = selectedOption?.textContent ?? "";
+    };
+
+    const buildOptions = () => {
+      menu.innerHTML = "";
+
+      [...nativeSelect.options].forEach((option) => {
+        const optionButton = document.createElement("button");
+        optionButton.type = "button";
+        optionButton.className = "request-select-option";
+        optionButton.dataset.requestSelectValue = option.value;
+        optionButton.textContent = option.textContent ?? "";
+        optionButton.classList.toggle("is-selected", option.value === nativeSelect.value);
+        menu.append(optionButton);
+      });
+    };
+
+    trigger.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const isOpen = wrap.classList.contains("is-open");
+      closeAll();
+
+      if (!isOpen) {
+        wrap.classList.add("is-open");
+        trigger.setAttribute("aria-expanded", "true");
+      }
+    });
+
+    menu.addEventListener("click", (event) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (!target) {
+        return;
+      }
+
+      const optionButton = target.closest("[data-request-select-value]");
+      if (!(optionButton instanceof HTMLElement)) {
+        return;
+      }
+
+      const nextValue = String(optionButton.dataset.requestSelectValue ?? "");
+      nativeSelect.value = nextValue;
+      nativeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+
+      updateLabel();
+      buildOptions();
+      closeAll();
+    });
+
+    nativeSelect.addEventListener("change", () => {
+      updateLabel();
+      buildOptions();
+    });
+
+    selectEntries.push({
+      wrap,
+      trigger,
+      nativeSelect,
+      refresh() {
+        updateLabel();
+        buildOptions();
+      },
+    });
+
+    updateLabel();
+    buildOptions();
+  });
+
+  document.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target || !target.closest(".request-select-wrap")) {
+      closeAll();
+    }
+  });
+
+  rootElement.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeAll();
+    }
+  });
+
+  return {
+    refresh() {
+      selectEntries.forEach((entry) => entry.refresh());
+    },
+  };
 }
 
 export async function mountBookingsPage(rootElement) {
@@ -373,8 +557,7 @@ export async function mountBookingsPage(rootElement) {
   rootElement.replaceChildren(shell);
 
   contentArea.innerHTML = `
-    <section class="panel request-board">
-      <div class="request-toolbar">
+    <div class="request-toolbar">
         <label class="request-search-wrap" aria-label="Search appointments">
           <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
             <circle cx="9" cy="9" r="5.7" fill="none" stroke="currentColor" stroke-width="1.6"></circle>
@@ -391,15 +574,8 @@ export async function mountBookingsPage(rootElement) {
             <option value="onderhoud">Onderhoud</option>
             <option value="airco">Airco</option>
             <option value="occasions">Occasions</option>
-          </select>
-        </label>
-
-        <label class="request-select-wrap">
-          <select id="requestStatusFilter" class="request-select">
-            <option value="all">All Status</option>
-            <option value="new">New</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="done">Done</option>
+            <option value="brakes">Brakes</option>
+            <option value="other">Overige</option>
           </select>
         </label>
 
@@ -408,32 +584,32 @@ export async function mountBookingsPage(rootElement) {
             <option value="all">All Technicians</option>
           </select>
         </label>
-      </div>
+    </div>
 
+    <section class="panel request-board">
       <div id="requestList" class="request-list"></div>
     </section>
   `;
 
   const searchInput = contentArea.querySelector("#requestSearch");
   const serviceFilter = contentArea.querySelector("#requestServiceFilter");
-  const statusFilter = contentArea.querySelector("#requestStatusFilter");
   const technicianFilter = contentArea.querySelector("#requestTechnicianFilter");
   const listElement = contentArea.querySelector("#requestList");
+  const customSelects = setupCustomRequestSelects(contentArea);
 
   let allBookings = [];
   let visibleBookings = [];
   let expandedBookingId = "";
   let editingBookingId = "";
+  const vehicleCache = new Map();
 
   const render = () => {
     const searchTerm = String(searchInput.value ?? "").trim().toLowerCase();
     const selectedService = String(serviceFilter.value ?? "all");
-    const selectedStatus = String(statusFilter.value ?? "all");
     const selectedTechnician = String(technicianFilter.value ?? "all");
 
     visibleBookings = allBookings.filter((booking, index) => {
-      const bookingStatus = normalizeStatus(booking.status);
-      const bookingService = primaryServiceKey(booking.service);
+      const bookingServiceKeys = splitServiceValues(booking.service).map((item) => normalizeServiceKey(item));
       const bookingTechnician = customerName(booking, index);
 
       const haystack = [
@@ -447,11 +623,10 @@ export async function mountBookingsPage(rootElement) {
         .toLowerCase();
 
       const passesSearch = !searchTerm || haystack.includes(searchTerm);
-      const passesService = selectedService === "all" || bookingService === selectedService;
-      const passesStatus = selectedStatus === "all" || bookingStatus === selectedStatus;
+      const passesService = selectedService === "all" || bookingServiceKeys.includes(selectedService);
       const passesTechnician = selectedTechnician === "all" || bookingTechnician === selectedTechnician;
 
-      return passesSearch && passesService && passesStatus && passesTechnician;
+      return passesSearch && passesService && passesTechnician;
     });
 
     if (expandedBookingId && !visibleBookings.some((booking) => String(booking.id) === expandedBookingId)) {
@@ -463,7 +638,7 @@ export async function mountBookingsPage(rootElement) {
       editingBookingId = "";
     }
 
-    listElement.innerHTML = requestCardsMarkup(visibleBookings, expandedBookingId, editingBookingId);
+    listElement.innerHTML = requestCardsMarkup(visibleBookings, expandedBookingId, editingBookingId, vehicleCache);
   };
 
   contentArea.addEventListener("click", async (event) => {
@@ -541,9 +716,9 @@ export async function mountBookingsPage(rootElement) {
           allBookings.map((item) =>
             String(item.id) === bookingId
               ? {
-                  ...item,
-                  appointmentAt: nextAppointmentAt,
-                }
+                ...item,
+                appointmentAt: nextAppointmentAt,
+              }
               : item,
           ),
         );
@@ -560,18 +735,37 @@ export async function mountBookingsPage(rootElement) {
       }
 
       if (action === "complete") {
-        persistBookingStatus(bookingId, "done");
-        markBookingDone(bookingId, {
-          convertedFromEmail: booking.source !== "manual",
-        });
+        const confirmed = await showConfirmDialog(
+          "Are you sure you want to mark this appointment as completed?",
+          "Mark as Completed",
+        );
+        if (!confirmed) {
+          return;
+        }
 
-        allBookings = allBookings.filter((item) => String(item.id) !== bookingId);
-        editingBookingId = "";
-        render();
+        persistBookingStatus(bookingId, "done");
+        try {
+          await markBookingDone(booking, {
+            convertedFromEmail: booking.source !== "manual",
+          });
+        } catch (error) {
+          window.alert(error instanceof Error ? error.message : "Unable to mark appointment as completed.");
+          return;
+        }
+
+        window.location.href = "/completed.html";
         return;
       }
 
       if (action === "delete") {
+        const confirmed = await showConfirmDialog(
+          "Are you sure you want to delete this appointment? This action cannot be undone.",
+          "Delete Appointment",
+        );
+        if (!confirmed) {
+          return;
+        }
+
         try {
           await deleteBooking(booking);
         } catch (error) {
@@ -606,7 +800,6 @@ export async function mountBookingsPage(rootElement) {
 
   searchInput.addEventListener("input", render);
   serviceFilter.addEventListener("change", render);
-  statusFilter.addEventListener("change", render);
   technicianFilter.addEventListener("change", render);
 
   try {
@@ -616,11 +809,34 @@ export async function mountBookingsPage(rootElement) {
 
     allBookings = sortBookingsByAppointment(bookings.filter((booking) => booking.inAppointments === true));
 
+    // Fetch vehicle data for all unique license plates
+    const uniqueLicensePlates = new Set(
+      allBookings
+        .map((b) => b.licensePlate)
+        .filter((plate) => plate && plate !== "UNKNOWN")
+        .map((plate) => normalizeLicensePlate(plate))
+    );
+
+    for (const licensePlate of uniqueLicensePlates) {
+      if (licensePlate && !vehicleCache.has(licensePlate)) {
+        try {
+          const vehicle = await fetchVehicleByLicensePlate(licensePlate);
+          if (vehicle) {
+            vehicleCache.set(licensePlate, vehicle);
+          }
+        } catch (error) {
+          // Silently fail - will use fallback
+          console.error(`Failed to fetch vehicle for ${licensePlate}:`, error);
+        }
+      }
+    }
+
     const technicianOptions = buildTechnicianOptions(allBookings);
     technicianFilter.innerHTML = `
       <option value="all">All Technicians</option>
       ${technicianOptions.map((name) => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}
     `;
+    customSelects.refresh();
 
     expandedBookingId = allBookings[0] ? String(allBookings[0].id) : "";
     render();

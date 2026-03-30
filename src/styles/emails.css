@@ -15,7 +15,7 @@
 
 .emails-search {
   width: 100%;
-  border: 1px solid var(--line);
+  border: 1px solid var(--e6e6e6);
   border-radius: 10px;
   background: #ffffff;
   color: #101828;
@@ -45,7 +45,7 @@
 }
 
 .emails-row {
-  border: 1px solid var(--line);
+  border: 1px solid var(--e6e6e6);
   border-radius: 12px;
   background: #ffffff;
   padding: 0.72rem 0.8rem;
@@ -111,15 +111,15 @@
 }
 
 .emails-row-empty {
-  border: 1px dashed var(--line);
+  border: 1px dashed var(--e6e6e6);
   border-radius: 12px;
   padding: 0.9rem;
   text-align: center;
-  color: var(--muted);
+  color: var(--666666);
 }
 
 .emails-detail {
-  border: 1px solid var(--line);
+  border: 1px solid var(--e6e6e6);
   border-radius: 12px;
   background: #f8faff;
   padding: 0.72rem;
@@ -163,7 +163,7 @@
 }
 
 .emails-detail-grid>div {
-  border: 1px solid var(--line);
+  border: 1px solid var(--e6e6e6);
   border-radius: 10px;
   background: #ffffff;
   padding: 0.52rem 0.64rem;
@@ -184,7 +184,7 @@
 }
 
 .emails-message-block {
-  border: 1px solid var(--line);
+  border: 1px solid var(--e6e6e6);
   border-radius: 10px;
   background: #ffffff;
   padding: 0.66rem 0.72rem;

@@ -10,8 +10,10 @@ import {
   markEmailAsRead,
   summarizeEmailInbox,
 } from "../services/emailService.js";
+import { fetchVehicleByLicensePlate, normalizeLicensePlate } from "../services/rdwService.js";
 import { ensureAuthenticated, logoutAndRedirect } from "../utils/auth.js";
 import { applyGarageBranding } from "../utils/branding.js";
+import { showConfirmDialog } from "../utils/confirmDialog.js";
 import {
   formatScheduleDateLabel,
   handleScheduleTimePickerInteraction,
@@ -21,20 +23,13 @@ import {
   scheduleTimeOptionsMarkup,
 } from "../utils/scheduleTimePicker.js";
 
-const FALLBACK_VEHICLES = [
-  "Toyota Corolla (2021)",
-  "Mercedes C-Klasse (2018)",
-  "Audi A3 (2020)",
-  "Volkswagen Golf (2019)",
-  "BMW 1 Series (2017)",
-];
-
 const SERVICE_LABEL_BY_KEY = {
   apk: "APK",
   banden: "Banden",
   onderhoud: "Onderhoud",
   airco: "Airco",
   occasions: "Occasions",
+  brakes: "Brakes",
   other: "Overige",
 };
 
@@ -50,6 +45,9 @@ const SERVICE_KEY_ALIASES = new Map([
   ["onderhoud", "onderhoud"],
   ["maintenance", "onderhoud"],
   ["service", "onderhoud"],
+  ["brakes", "brakes"],
+  ["brake", "brakes"],
+  ["remmen", "brakes"],
 ]);
 
 function nextHalfHour() {
@@ -72,6 +70,20 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function fallbackVehiclePreview(licensePlate = "") {
+  const normalized = normalizeLicensePlate(licensePlate);
+  return {
+    title: normalized || "Unknown vehicle",
+    buildYear: "",
+  };
+}
+
+function formatLicensePlate(plate) {
+  const cleaned = String(plate ?? "").toUpperCase().replace(/[^A-Z0-9]/g, '');
+  // Format as: XX-XX-XX (groups of 2 separated by dashes)
+  return cleaned.replace(/(.{2})(?=.)/g, '$1-');
 }
 
 function parseDate(value) {
@@ -151,8 +163,7 @@ function splitServiceValues(service) {
   const parts = raw
     .split(raw.includes(",") ? /,/g : /\+|\/|&| and /gi)
     .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 3);
+    .filter(Boolean);
 
   return parts.length ? parts : [raw];
 }
@@ -171,7 +182,7 @@ function serviceChipsMarkup(service) {
     .join("");
 }
 
-function emailCardsMarkup(inboxEmails, expandedEmailId, editingEmailId) {
+function emailCardsMarkup(inboxEmails, expandedEmailId, editingEmailId, vehicleCache) {
   if (!inboxEmails.length) {
     return '<article class="request-card"><p class="muted">No e-mails in inbox.</p></article>';
   }
@@ -182,9 +193,13 @@ function emailCardsMarkup(inboxEmails, expandedEmailId, editingEmailId) {
       const isExpanded = expandedEmailId === emailId;
       const isEditing = editingEmailId === emailId;
       const scheduleSeed = emailScheduleSeed(email);
-      const plate = escapeHtml(String(email.licensePlate ?? "UNKNOWN").toUpperCase());
+      const plate = escapeHtml(email.licensePlate && email.licensePlate !== "UNKNOWN" ? formatLicensePlate(email.licensePlate) : "UNKNOWN");
       const name = escapeHtml(String(email.senderName ?? "Website visitor"));
-      const vehicle = escapeHtml(FALLBACK_VEHICLES[index % FALLBACK_VEHICLES.length]);
+      const licensePlateKey = email.licensePlate ? normalizeLicensePlate(email.licensePlate) : "";
+      const vehicleData = vehicleCache.get(licensePlateKey) || fallbackVehiclePreview(email.licensePlate);
+      const vehicle = vehicleData.buildYear
+        ? `${vehicleData.title} (${vehicleData.buildYear})`
+        : vehicleData.title;
       const time = escapeHtml(formatTime(email.appointmentAt ?? email.receivedAt));
       const scheduleDate = normalizeDateValue(toDateInputValue(scheduleSeed));
       const safeScheduleDate = escapeHtml(scheduleDate);
@@ -228,10 +243,25 @@ function emailCardsMarkup(inboxEmails, expandedEmailId, editingEmailId) {
           ${
             isExpanded
               ? `
+            <div class="request-divider"></div>
             <div class="request-expanded">
               <div class="request-expanded-grid">
-                <div class="request-contact-box">${phone}</div>
-                <div class="request-message-box">${message}</div>
+                <div class="request-contact-box">
+                  <div class="request-box-label">
+                    <img src="/sidebar-icons/user.png" alt="" aria-hidden="true" />
+                    <span>Phone</span>
+                  </div>
+                  <div class="request-box-divider"></div>
+                  <span>${phone}</span>
+                </div>
+                <div class="request-message-box">
+                  <div class="request-box-label">
+                    <img src="/sidebar-icons/text.png" alt="" aria-hidden="true" />
+                    <span>Message</span>
+                  </div>
+                  <div class="request-box-divider"></div>
+                  <span>${message}</span>
+                </div>
               </div>
 
               <div class="request-actions">
@@ -289,7 +319,10 @@ function emailCardsMarkup(inboxEmails, expandedEmailId, editingEmailId) {
                 }
 
                 <button class="icon-button" type="button" data-email-action="edit" data-email-id="${escapeHtml(emailId)}" aria-label="Edit email schedule">✎</button>
-                <button class="button danger" type="button" data-email-action="delete" data-email-id="${escapeHtml(emailId)}">Delete</button>
+                ${!isEditing
+                  ? `<button class="button danger" type="button" data-email-action="delete" data-email-id="${escapeHtml(emailId)}">Delete</button>`
+                  : ""
+                }
               </div>
             </div>
           `
@@ -348,6 +381,7 @@ export async function mountEmailsPage(rootElement) {
   let inboxEmails = [];
   let expandedEmailId = "";
   let editingEmailId = "";
+  const vehicleCache = new Map();
 
   const render = () => {
     if (!inboxEmails.some((email) => String(email.id) === expandedEmailId)) {
@@ -359,7 +393,7 @@ export async function mountEmailsPage(rootElement) {
       editingEmailId = "";
     }
 
-    listElement.innerHTML = emailCardsMarkup(inboxEmails, expandedEmailId, editingEmailId);
+    listElement.innerHTML = emailCardsMarkup(inboxEmails, expandedEmailId, editingEmailId, vehicleCache);
     setUnreadEmailCount(inboxEmails.length);
   };
 
@@ -466,6 +500,15 @@ export async function mountEmailsPage(rootElement) {
         if (!email) {
           return;
         }
+
+        const confirmed = await showConfirmDialog(
+          "Are you sure you want to delete this email? This action cannot be undone.",
+          "Delete Email",
+        );
+        if (!confirmed) {
+          return;
+        }
+
         try {
           await deleteBooking(email);
         } catch (error) {
@@ -504,6 +547,28 @@ export async function mountEmailsPage(rootElement) {
           new Date(right.receivedAt ?? right.appointmentAt).getTime() -
           new Date(left.receivedAt ?? left.appointmentAt).getTime(),
       );
+
+    // Fetch vehicle data for all unique license plates
+    const uniqueLicensePlates = new Set(
+      inboxEmails
+        .map((e) => e.licensePlate)
+        .filter((plate) => plate && plate !== "UNKNOWN")
+        .map((plate) => normalizeLicensePlate(plate))
+    );
+
+    for (const licensePlate of uniqueLicensePlates) {
+      if (licensePlate && !vehicleCache.has(licensePlate)) {
+        try {
+          const vehicle = await fetchVehicleByLicensePlate(licensePlate);
+          if (vehicle) {
+            vehicleCache.set(licensePlate, vehicle);
+          }
+        } catch (error) {
+          // Silently fail - will use fallback
+          console.error(`Failed to fetch vehicle for ${licensePlate}:`, error);
+        }
+      }
+    }
 
     expandedEmailId = inboxEmails[0] ? String(inboxEmails[0].id) : "";
     render();

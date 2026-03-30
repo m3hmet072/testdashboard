@@ -8,20 +8,37 @@
 
 .dashboard-schedule-list {
   display: grid;
+  width: 100%;
+  height: 100%;
   gap: 0.55rem;
 }
 
 .schedule-row {
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface-elevated);
-  padding: 0.58rem 0.72rem;
+  border: 1px solid var(--e6e6e6);
+  border-radius: 16px;
+  background: var(--fafafa);
+  padding: 16px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.65rem;
 }
-
+.schedule-row-no{
+  background-color: #fff;
+  width: 100%;
+  height: 270px;
+  align-items: center;
+  justify-content: center;
+  display: flex;
+}
+.schedule-row-no p{
+  font-weight: 500;
+  color: var(--666666);
+}
+.dashboard-schedule-panel{
+  height: fit-content;
+  min-height: 300px;
+}
 .schedule-row-main {
   display: flex;
   align-items: center;
@@ -30,9 +47,14 @@
 }
 
 .schedule-time {
-  font-weight: 600;
-  color: var(--ink-strong);
-  min-width: 48px;
+  font-weight: 500;
+  color: var(--333333);
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  justify-content: start;
+  gap: 8px;
+  min-width: 75px;
 }
 
 .dashboard-overview-body {
@@ -60,7 +82,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--ink-strong);
+  color: var(--151618);
 }
 
 .legend-dot {
@@ -96,7 +118,7 @@
 
 .legend-value {
   margin-left: auto;
-  color: var(--muted);
+  color: var(--666666);
 }
 
 @media (max-width: 1200px) {

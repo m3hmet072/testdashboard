@@ -7,8 +7,14 @@ const NAV_LINKS = [
   {
     key: "completed",
     href: "/completed.html",
-    label: "Completed Appointments",
+    label: "Completed",
     icon: "completed",
+  },
+  {
+    key: "werkbon",
+    href: "/werkbon.html",
+    label: "Werkbon",
+    icon: "werkbon",
   },
   {
     key: "addappointment",
@@ -25,11 +31,14 @@ const SIDEBAR_ICON_SRC = {
   appointments: "/sidebar-icons/appointment.png",
   calendar: "/sidebar-icons/calender.png",
   completed: "/sidebar-icons/succes.png",
+  werkbon: "/sidebar-icons/werkbon.png",
   addappointment: "/sidebar-icons/addappointment.png",
   emails: "/sidebar-icons/email.png",
   analytics: "/sidebar-icons/analytics.png",
   default: "/sidebar-icons/default.png",
 };
+
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "garage-dashboard.sidebar-collapsed";
 
 function iconMarkup(icon) {
   const src = SIDEBAR_ICON_SRC[icon] ?? SIDEBAR_ICON_SRC.default;
@@ -89,6 +98,12 @@ export function createSidebar(
 ) {
   const sidebar = document.createElement("aside");
   sidebar.className = "sidebar";
+  const isCollapsed = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
+
+  if (isCollapsed) {
+    sidebar.classList.add("is-collapsed");
+    sidebar.dataset.collapsed = "true";
+  }
 
   const linksMarkup = NAV_LINKS.map((item) => {
     const activeClass = item.key === activePage ? "is-active" : "";
@@ -105,15 +120,23 @@ export function createSidebar(
   const userName = displayNameFromEmail(userEmail, isAdmin ? "Admin" : "");
   const userRole = isAdmin ? "Owner" : garage?.name ?? "Garage Staff";
   const isDarkTheme = getActiveTheme() === "dark";
+  const collapseLabel = isCollapsed ? "Expand sidebar" : "Collapse sidebar";
 
   sidebar.innerHTML = `
     <div class="sidebar-main">
-      <a href="/dashboard.html" class="brand">
-        ${garageLogoMarkup(garage)}
-        <span class="brand-text-wrap">
-          <span class="brand-text">${garage?.name}</span>
-        </span>
-      </a>
+      <div class="sidebar-brand-row">
+        <a href="/dashboard.html" class="brand">
+          ${garageLogoMarkup(garage)}
+          <span class="brand-text-wrap">
+            <span class="brand-text">${garage?.name}</span>
+          </span>
+        </a>
+        <button class="sidebar-collapse-toggle" type="button" aria-label="${collapseLabel}" title="${collapseLabel}">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path fill="currentColor" d="M20.25 7c0-.69-.56-1.25-1.25-1.25H9.75v12.5H19c.69 0 1.25-.56 1.25-1.25zM3.75 17c0 .69.56 1.25 1.25 1.25h3.25V5.75H5c-.69 0-1.25.56-1.25 1.25zm18 0A2.75 2.75 0 0 1 19 19.75H5A2.75 2.75 0 0 1 2.25 17V7A2.75 2.75 0 0 1 5 4.25h14A2.75 2.75 0 0 1 21.75 7z"></path>
+          </svg>
+        </button>
+      </div>
 
       <p class="sidebar-section-label">Navigate</p>
 
@@ -171,6 +194,23 @@ export function createSidebar(
   }
 
   const logoutButton = sidebar.querySelector(".sidebar-logout");
+  const collapseButton = sidebar.querySelector(".sidebar-collapse-toggle");
+
+  const applyCollapsedState = (collapsed) => {
+    sidebar.classList.toggle("is-collapsed", collapsed);
+    sidebar.dataset.collapsed = collapsed ? "true" : "false";
+    collapseButton?.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
+    collapseButton?.setAttribute("title", collapsed ? "Expand sidebar" : "Collapse sidebar");
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, collapsed ? "true" : "false");
+
+    const shell = sidebar.closest(".app-shell");
+    shell?.classList.toggle("is-sidebar-collapsed", collapsed);
+  };
+
+  collapseButton?.addEventListener("click", () => {
+    applyCollapsedState(!sidebar.classList.contains("is-collapsed"));
+  });
+
   if (typeof onLogout === "function") {
     logoutButton?.addEventListener("click", onLogout);
   } else {

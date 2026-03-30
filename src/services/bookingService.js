@@ -1,8 +1,12 @@
 import {
+  fetchCompletedAppointmentsByGarageIds,
   deleteBookingById,
+  deleteCompletedAppointmentById,
   fetchBookingsByGarageIds,
   isSupabaseConfigured,
   insertBooking,
+  setCompletedAppointmentWerkbonCreated,
+  upsertCompletedAppointmentFromBooking,
   upsertBookingSchedule,
 } from "./supabaseClient.js";
 
@@ -200,6 +204,35 @@ function combineAppointmentDateTime(booking) {
   return `${appointmentDate}T${appointmentTime}`;
 }
 
+function extractContactField(rawMessage, field) {
+  const raw = String(rawMessage ?? "");
+  const pattern = new RegExp(`\\b${field}\\s*:\\s*([^\\n]+)`, "i");
+  return (raw.match(pattern)?.[1] ?? "").trim();
+}
+
+function buildCompletionNotesFromBooking(booking, completedAtIso) {
+  return {
+    status: "draft",
+    werkbon_created: false,
+    customer_name: extractContactField(booking.message, "name") || "Onbekende klant",
+    customer_email: extractContactField(booking.message, "email") || "",
+    customer_phone: String(booking.phone ?? "").trim(),
+    car_model: "Voertuig",
+    service_types: [String(booking.service ?? "Service")],
+    km_stand: 0,
+    vat_enabled: true,
+    description: extractContactField(booking.message, "message") || "",
+    internal_note: "",
+    invoice_number: "",
+    paid_at: null,
+    completed_at: completedAtIso,
+    parts: [{ name: "Service", quantity: 1, price: 0 }],
+    labour: { hours: 0, rate: 0 },
+    totals: { subtotal: 0, vat: 0, total: 0 },
+    updated_at: new Date().toISOString(),
+  };
+}
+
 function getBookingScheduleContext(bookingOrId) {
   if (bookingOrId && typeof bookingOrId === "object") {
     const bookingId = normalizeBookingId(bookingOrId.id);
@@ -255,6 +288,24 @@ function toDeletePersistenceError(error) {
   }
 
   return new Error("Unable to delete the appointment.");
+}
+
+function toDeleteCompletedPersistenceError(error) {
+  const code = String(error?.code ?? "").trim();
+
+  if (code === "42P01") {
+    return new Error("Supabase completed_appointments table is missing. Run the completed SQL migration first.");
+  }
+
+  if (code === "42501") {
+    return new Error("Supabase blocked deleting this completed appointment. Check RLS policies for completed_appointments.");
+  }
+
+  if (error instanceof Error) {
+    return error;
+  }
+
+  return new Error("Unable to delete the completed appointment.");
 }
 
 function normalizeBooking(booking) {
@@ -356,10 +407,11 @@ export async function deleteBooking(bookingOrId) {
   }
 
   if (!isSupabaseConfigured()) {
+    // Mark as deleted in workflow state so it won't reappear
     upsertWorkflowEntry(bookingId, {
       deleted: true,
       inAppointments: false,
-      status: "done",
+      status: "deleted",
     });
     return true;
   }
@@ -379,15 +431,85 @@ export async function deleteBooking(bookingOrId) {
     throw new Error("Supabase did not delete this booking (row not found or blocked by RLS policy).");
   }
 
-  removeWorkflowEntry(bookingId);
+  // Mark as deleted in workflow state to prevent it from reappearing
+  upsertWorkflowEntry(bookingId, {
+    deleted: true,
+    inAppointments: false,
+    status: "deleted",
+  });
   return true;
 }
 
-export function markBookingDone(bookingId, { convertedFromEmail = false } = {}) {
+export async function deleteCompletedAppointment(completedAppointmentOrBooking) {
+  const completedAppointmentId = String(
+    completedAppointmentOrBooking?.completedAppointmentId
+      ?? completedAppointmentOrBooking?.id
+      ?? completedAppointmentOrBooking,
+  ).trim();
+  const garageId = String(completedAppointmentOrBooking?.garageId ?? completedAppointmentOrBooking?.garage_id ?? "").trim();
+  const bookingId = String(completedAppointmentOrBooking?.bookingId ?? "").trim();
+
+  if (!completedAppointmentId) {
+    throw new Error("Completed appointment id is required before deleting.");
+  }
+
+  if (!isSupabaseConfigured()) {
+    if (bookingId) {
+      upsertWorkflowEntry(bookingId, {
+        deleted: true,
+        inAppointments: false,
+      });
+    }
+    return true;
+  }
+
+  let deletedRow;
+  try {
+    deletedRow = await deleteCompletedAppointmentById({
+      completedAppointmentId,
+      garageId,
+    });
+  } catch (error) {
+    throw toDeleteCompletedPersistenceError(error);
+  }
+
+  if (!deletedRow) {
+    throw new Error("Supabase did not delete this completed appointment (row not found or blocked by RLS policy).");
+  }
+
+  if (bookingId) {
+    try {
+      // Also remove the linked booking so it cannot reappear in Appointments.
+      await deleteBookingById({
+        bookingId,
+        garageId,
+      });
+    } catch (error) {
+      throw toDeletePersistenceError(error);
+    }
+  }
+
+  if (bookingId) {
+    // Mark as deleted in workflow state to prevent it from reappearing in other pages
+    upsertWorkflowEntry(bookingId, {
+      deleted: true,
+      inAppointments: false,
+      status: "deleted",
+    });
+  }
+
+  return true;
+}
+
+export async function markBookingDone(bookingOrId, { convertedFromEmail = false } = {}) {
+  const booking = bookingOrId && typeof bookingOrId === "object" ? bookingOrId : null;
+  const bookingId = normalizeBookingId(booking?.id ?? bookingOrId);
+  const completedAtIso = new Date().toISOString();
+
   const patch = {
     inAppointments: false,
     status: "done",
-    completedAt: new Date().toISOString(),
+    completedAt: completedAtIso,
   };
 
   if (convertedFromEmail) {
@@ -395,6 +517,141 @@ export function markBookingDone(bookingId, { convertedFromEmail = false } = {}) 
   }
 
   upsertWorkflowEntry(bookingId, patch);
+
+  if (!booking || !isSupabaseConfigured()) {
+    return { persistedToSupabase: false };
+  }
+
+  const garageId = String(booking.garageId ?? booking.garage_id ?? "").trim();
+  if (!garageId) {
+    return { persistedToSupabase: false };
+  }
+
+  try {
+    const completionNotes = buildCompletionNotesFromBooking(booking, completedAtIso);
+    await upsertCompletedAppointmentFromBooking({
+      garageId,
+      bookingId,
+      appointmentAt: booking.appointmentAt,
+      completedAt: completedAtIso,
+      licensePlate: booking.licensePlate,
+      service: booking.service,
+      completionNotes,
+    });
+
+    return { persistedToSupabase: true };
+  } catch (error) {
+    if (String(error?.code ?? "") === "42501" || Number(error?.status ?? 0) === 403) {
+      return { persistedToSupabase: false, warning: "RLS_BLOCKED" };
+    }
+    throw error;
+  }
+}
+
+export async function createWerkbonForBooking(booking) {
+  if (!isSupabaseConfigured()) {
+    return null;
+  }
+
+  const garageId = String(booking.garageId ?? booking.garage_id ?? "").trim();
+  if (!garageId) {
+    return null;
+  }
+
+  const completedAtIso = booking.completedAt || new Date().toISOString();
+  const completionNotes = {
+    ...buildCompletionNotesFromBooking(booking, completedAtIso),
+    werkbon_created: true,
+  };
+
+  try {
+    const row = await upsertCompletedAppointmentFromBooking({
+      garageId,
+      bookingId: String(booking.id ?? ""),
+      appointmentAt: booking.appointmentAt,
+      completedAt: completedAtIso,
+      licensePlate: booking.licensePlate,
+      service: booking.service,
+      completionNotes,
+    });
+
+    return String(row?.id ?? "");
+  } catch (error) {
+    if (String(error?.code ?? "") === "42501" || Number(error?.status ?? 0) === 403) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function setWerkbonCreatedForCompletedAppointment(
+  completedAppointmentOrBooking,
+  { created = true } = {},
+) {
+  if (!isSupabaseConfigured()) {
+    return null;
+  }
+
+  const completedAppointmentId = String(
+    completedAppointmentOrBooking?.completedAppointmentId
+      ?? completedAppointmentOrBooking?.id
+      ?? completedAppointmentOrBooking,
+  ).trim();
+  const garageId = String(completedAppointmentOrBooking?.garageId ?? completedAppointmentOrBooking?.garage_id ?? "").trim();
+
+  if (!completedAppointmentId) {
+    return null;
+  }
+
+  try {
+    const row = await setCompletedAppointmentWerkbonCreated({
+      completedAppointmentId,
+      garageId,
+      werkbonCreated: created,
+    });
+    return row ? String(row.id ?? "") : null;
+  } catch (error) {
+    if (String(error?.code ?? "") === "42501" || Number(error?.status ?? 0) === 403) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function getCompletedAppointments({ garageIds = null } = {}) {
+  if (!isSupabaseConfigured()) {
+    return [];
+  }
+
+  const rows = await fetchCompletedAppointmentsByGarageIds({ garageIds });
+  return rows.map((row) => {
+    let notes = {};
+    try {
+      notes = JSON.parse(String(row.completion_notes ?? "{}"));
+    } catch {
+      notes = {};
+    }
+
+    return {
+      id: String(row.booking_id ?? row.id),
+      completedAppointmentId: String(row.id ?? ""),
+      bookingId: row.booking_id ? String(row.booking_id) : "",
+      garageId: String(row.garage_id ?? ""),
+      licensePlate: String(row.license_plate ?? ""),
+      phone: String(notes.customer_phone ?? notes.customerPhone ?? ""),
+      service: String(row.service ?? "Service"),
+      message: String(notes.description ?? ""),
+      werkbonCreated: notes.werkbon_created === true,
+      appointmentAt: row.appointment_date && row.appointment_time
+        ? `${row.appointment_date}T${String(row.appointment_time).slice(0, 8)}`
+        : String(row.completed_at ?? row.created_at ?? ""),
+      completedAt: String(row.completed_at ?? row.created_at ?? ""),
+      status: "done",
+      inAppointments: false,
+      source: "completed",
+      createdAt: String(row.created_at ?? row.completed_at ?? ""),
+    };
+  });
 }
 
 export async function createManualBooking({

@@ -12,6 +12,7 @@ const SERVICE_LABEL_BY_KEY = {
   onderhoud: "Onderhoud",
   airco: "Airco",
   occasions: "Occasions",
+  brakes: "Brakes",
   other: "Overige",
 };
 
@@ -27,7 +28,12 @@ const SERVICE_KEY_ALIASES = new Map([
   ["onderhoud", "onderhoud"],
   ["maintenance", "onderhoud"],
   ["service", "onderhoud"],
+  ["brakes", "brakes"],
+  ["brake", "brakes"],
+  ["remmen", "brakes"],
 ]);
+
+const SERVICE_DISTRIBUTION_ORDER = ["apk", "banden", "onderhoud", "airco", "occasions", "brakes", "other"];
 
 function normalizeStatus(value) {
   const normalized = String(value ?? "").trim().toLowerCase();
@@ -48,6 +54,10 @@ function normalizeStatus(value) {
   return "new";
 }
 
+function isCompletedBooking(booking) {
+  return normalizeStatus(booking.status) === "done" || booking.inAppointments === false;
+}
+
 function splitServiceValues(service) {
   const raw = String(service ?? "").trim();
   if (!raw) {
@@ -57,8 +67,7 @@ function splitServiceValues(service) {
   const parts = raw
     .split(raw.includes(",") ? /,/g : /\+|\/|&| and /gi)
     .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 3);
+    .filter(Boolean);
 
   return parts.length ? parts : [raw];
 }
@@ -68,17 +77,30 @@ function normalizeServiceKey(token) {
 }
 
 function buildServiceDistribution(bookings) {
-  const counts = new Map();
+  const counts = new Map(SERVICE_DISTRIBUTION_ORDER.map((key) => [key, 0]));
 
   for (const booking of bookings) {
-    const firstToken = splitServiceValues(booking.service)[0] ?? "other";
-    const key = normalizeServiceKey(firstToken);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    const serviceKeys = new Set(splitServiceValues(booking.service).map((token) => normalizeServiceKey(token)));
+
+    if (!serviceKeys.size) {
+      serviceKeys.add("other");
+    }
+
+    for (const key of serviceKeys) {
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
   }
 
-  const entries = [...counts.entries()]
-    .sort((left, right) => right[1] - left[1])
-    .slice(0, 6);
+  const entries = SERVICE_DISTRIBUTION_ORDER
+    .map((key, index) => ({ key, count: counts.get(key) ?? 0, index }))
+    .filter((entry) => entry.count > 0)
+    .sort((left, right) => {
+      if (right.count !== left.count) {
+        return right.count - left.count;
+      }
+
+      return left.index - right.index;
+    });
 
   if (!entries.length) {
     return {
@@ -88,12 +110,12 @@ function buildServiceDistribution(bookings) {
     };
   }
 
-  const total = entries.reduce((sum, [, count]) => sum + count, 0);
+  const total = entries.reduce((sum, entry) => sum + entry.count, 0);
 
   return {
-    labels: entries.map(([key]) => SERVICE_LABEL_BY_KEY[key] ?? SERVICE_LABEL_BY_KEY.other),
-    values: entries.map(([, count]) => count),
-    legend: entries.map(([key, count]) => ({
+    labels: entries.map(({ key }) => SERVICE_LABEL_BY_KEY[key] ?? SERVICE_LABEL_BY_KEY.other),
+    values: entries.map(({ count }) => count),
+    legend: entries.map(({ key, count }) => ({
       key,
       label: SERVICE_LABEL_BY_KEY[key] ?? SERVICE_LABEL_BY_KEY.other,
       percentage: Math.round((count / total) * 100),
@@ -154,22 +176,34 @@ export async function mountAnalyticsPage(rootElement) {
   contentArea.innerHTML = `
     <section class="metrics-grid">
       <article class="metric-card">
-        <p>Live visitors</p>
+        <div class="live-visitors-title">
+          <p>Live visitors</p>
+          <span class="live-visitors-dot" aria-hidden="true"></span>
+        </div>
         <h2 id="metricLiveVisitors">0</h2>
         <span class="metric-note">Currently on website</span>
       </article>
       <article class="metric-card">
-        <p>Today’s visitors</p>
+       <div>
+          <p>Today's visitors</p>
+          <img src="/sidebar-icons/userpurple.png" alt="Appointment icon">
+        </div>
         <h2 id="metricTodayVisitors">0</h2>
         <span class="metric-note">Unique visitors today</span>
       </article>
       <article class="metric-card">
-        <p>Total visitors</p>
+         <div>
+          <p>Total visitors</p>
+          <img src="/sidebar-icons/user.png" alt="Appointment icon">
+        </div>
         <h2 id="metricTotalVisitors">0</h2>
         <span class="metric-note">All time visitors</span>
       </article>
       <article class="metric-card">
-        <p>Completed appointments</p>
+         <div>
+          <p>Completed Appointments</p>
+          <img src="/sidebar-icons/succes.png" alt="Appointment icon">
+        </div>
         <h2 id="metricCompletedAppointments">0</h2>
         <span class="metric-note">All completed jobs</span>
       </article>
@@ -177,7 +211,7 @@ export async function mountAnalyticsPage(rootElement) {
 
     <section class="panel dashboard-overview-panel analytics-overview-panel">
       <div class="panel-heading spread">
-        <h3>Appointment Overview</h3>
+        <h3>Completed Overview</h3>
       </div>
 
       <div class="dashboard-overview-body">
@@ -216,14 +250,15 @@ export async function mountAnalyticsPage(rootElement) {
     );
     const liveVisitors = Number(activeUsersSeries.at(-1) ?? visitorsToday ?? 0);
 
-    const completedAppointments = bookings.filter((booking) => normalizeStatus(booking.status) === "done").length;
+    const completedBookings = bookings.filter(isCompletedBooking);
+    const completedAppointments = completedBookings.length;
 
     liveVisitorsElement.textContent = String(liveVisitors);
     todayVisitorsElement.textContent = String(visitorsToday);
     totalVisitorsElement.textContent = String(totalVisitors);
     completedAppointmentsElement.textContent = String(completedAppointments);
 
-    const distribution = buildServiceDistribution(bookings.filter((booking) => booking.inAppointments === true));
+    const distribution = buildServiceDistribution(completedBookings);
     overviewLegendElement.innerHTML = legendMarkup(distribution);
     createDoughnutChart(overviewChartCanvas, distribution.labels, distribution.values);
   } catch (error) {

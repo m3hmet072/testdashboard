@@ -11,7 +11,8 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
     "chart.js": "^4.4.7",
-    "googleapis": "^133.0.0"
+    "googleapis": "^133.0.0",
+    "jspdf": "^4.2.1"
   },
   "devDependencies": {
     "vite": "^5.4.0"
