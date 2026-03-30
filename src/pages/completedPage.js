@@ -12,6 +12,7 @@ import { fetchVehicleByLicensePlate, normalizeLicensePlate } from "../services/r
 import { ensureAuthenticated, logoutAndRedirect } from "../utils/auth.js";
 import { applyGarageBranding } from "../utils/branding.js";
 import { showConfirmDialog } from "../utils/confirmDialog.js";
+import { assetUrl, pageUrl } from "../utils/paths.js";
 
 const SERVICE_LABEL_BY_KEY = {
   apk: "APK",
@@ -252,7 +253,7 @@ function completedRowsMarkup(bookings, expandedBookingId, vehicleCache) {
               <div class="request-expanded-grid">
                 <div class="request-contact-box">
                   <div class="request-box-label">
-                    <img src="/sidebar-icons/user.png" alt="" aria-hidden="true" />
+                    <img src="${assetUrl("sidebar-icons/user.png")}" alt="" aria-hidden="true" />
                     <span>Phone</span>
                   </div>
                   <div class="request-box-divider"></div>
@@ -260,7 +261,7 @@ function completedRowsMarkup(bookings, expandedBookingId, vehicleCache) {
                 </div>
                 <div class="request-message-box">
                   <div class="request-box-label">
-                    <img src="/sidebar-icons/text.png" alt="" aria-hidden="true" />
+                    <img src="${assetUrl("sidebar-icons/text.png")}" alt="" aria-hidden="true" />
                     <span>Message</span>
                   </div>
                   <div class="request-box-divider"></div>
@@ -396,7 +397,7 @@ export async function mountCompletedPage(rootElement) {
           render();
           // Small delay to ensure Supabase update fully propagates before page load
           setTimeout(() => {
-            window.location.href = `/werkbon.html`;
+            window.location.href = pageUrl("werkbon.html");
           }, 300);
           return;
         }
@@ -421,7 +422,7 @@ export async function mountCompletedPage(rootElement) {
         render();
         // Small delay to ensure Supabase update fully propagates before page load
         setTimeout(() => {
-          window.location.href = `/werkbon.html`;
+          window.location.href = pageUrl("werkbon.html");
         }, 300);
         return;
       }

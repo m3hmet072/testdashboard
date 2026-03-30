@@ -4,6 +4,7 @@ import { createAppShell } from "../components/appShell.js";
 import { getBookings } from "../services/bookingService.js";
 import { ensureAuthenticated, logoutAndRedirect } from "../utils/auth.js";
 import { applyGarageBranding } from "../utils/branding.js";
+import { pageUrl } from "../utils/paths.js";
 
 const STATUS_META = {
   draft: { label: "Draft", className: "werkbon-status-draft" },
@@ -575,7 +576,7 @@ function detailPageMarkup({ invoice, isEditing, draft, hasChanges }) {
     <div class="werkbon-detail-page">
 
       <div class="werkbon-detail-topbar">
-        <a href="/werkbon.html" class="button subtle werkbon-detail-back-btn">
+        <a href="${pageUrl("werkbon.html")}" class="button subtle werkbon-detail-back-btn">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <path d="M12.5 5L7.5 10L12.5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
@@ -1308,14 +1309,14 @@ export async function mountWerkbonDetailPage(rootElement) {
     contentArea.innerHTML = `
       <div class="werkbon-detail-page">
         <div class="werkbon-detail-back">
-          <a href="/werkbon.html" class="button subtle werkbon-detail-back-btn">Terug naar werkbonnen</a>
+          <a href="${pageUrl("werkbon.html")}" class="button subtle werkbon-detail-back-btn">Terug naar werkbonnen</a>
         </div>
         <div class="werkbon-empty-state">
           <div>
             <h3>Werkbon not found</h3>
             <p class="muted">The werkbon with ID <strong>${escapeHtml(invoiceId || "(none)")}</strong> could not be found.</p>
           </div>
-          <a href="/werkbon.html" class="button">Go back to overview</a>
+          <a href="${pageUrl("werkbon.html")}" class="button">Go back to overview</a>
         </div>
       </div>
     `;

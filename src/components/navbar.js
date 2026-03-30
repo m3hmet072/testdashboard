@@ -1,3 +1,5 @@
+import { assetUrl, pageUrl } from "../utils/paths.js";
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -29,7 +31,7 @@ function pageIconMarkup(activePage) {
   }
 
   if (activePage === "addappointment") {
-    return `<img class="topbar-page-icon topbar-page-icon-addappointment" src="/sidebar-icons/addappointment.png" alt="Add Appointment icon">`;
+    return `<img class="topbar-page-icon topbar-page-icon-addappointment" src="${assetUrl("sidebar-icons/addappointment.png")}" alt="Add Appointment icon">`;
   }
 
   if (activePage === "emails") {
@@ -104,7 +106,7 @@ function getPageIconImage(activePage) {
     return null;
   }
 
-  return `/sidebar-icons/${iconName}.png`;
+  return assetUrl(`sidebar-icons/${iconName}.png`);
 }
 
 export function createNavbar({ title, headerNote = "", garage, activePage = "dashboard" }) {
@@ -152,8 +154,8 @@ export function createNavbar({ title, headerNote = "", garage, activePage = "das
 
         </div>
 
-        <a class="topbar-add-link ${activePage === "add-appointment" ? "is-current" : ""}" href="/add-appointment.html">
-          <img class="navbar-icon-add-appointment" src="/sidebar-icons/addappointment.png" alt="Email icon">
+        <a class="topbar-add-link ${activePage === "add-appointment" ? "is-current" : ""}" href="${pageUrl("add-appointment.html")}">
+          <img class="navbar-icon-add-appointment" src="${assetUrl("sidebar-icons/addappointment.png")}" alt="Email icon">
           <span>Add Appointment</span>
         </a>
       </div>

@@ -3,6 +3,7 @@ import {
   isSupabaseConfigured,
   signInWithPassword,
 } from "../services/supabaseClient.js";
+import { pageUrl } from "../utils/paths.js";
 import { getActiveTheme, setTheme } from "../utils/theme.js";
 
 function loginTemplate() {
@@ -73,7 +74,7 @@ export async function mountLoginPage(rootElement) {
     try {
       const session = await getSession();
       if (session) {
-        window.location.href = "/dashboard.html";
+        window.location.href = pageUrl("dashboard.html");
         return;
       }
     } catch (error) {
@@ -102,7 +103,7 @@ export async function mountLoginPage(rootElement) {
 
     try {
       await signInWithPassword(email, password);
-      window.location.href = "/dashboard.html";
+      window.location.href = pageUrl("dashboard.html");
     } catch (error) {
       authMessage.classList.add("error");
       authMessage.textContent =

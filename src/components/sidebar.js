@@ -1,41 +1,42 @@
 import { getActiveTheme, setTheme } from "../utils/theme.js";
+import { assetUrl, pageUrl } from "../utils/paths.js";
 
 const NAV_LINKS = [
-  { key: "dashboard", href: "/dashboard.html", label: "Dashboard", icon: "dashboard" },
-  { key: "calendar", href: "/calendar.html", label: "Calendar", icon: "calendar" },
-  { key: "bookings", href: "/bookings.html", label: "Appointment", icon: "appointments" },
+  { key: "dashboard", href: pageUrl("dashboard.html"), label: "Dashboard", icon: "dashboard" },
+  { key: "calendar", href: pageUrl("calendar.html"), label: "Calendar", icon: "calendar" },
+  { key: "bookings", href: pageUrl("bookings.html"), label: "Appointment", icon: "appointments" },
   {
     key: "completed",
-    href: "/completed.html",
+    href: pageUrl("completed.html"),
     label: "Completed",
     icon: "completed",
   },
   {
     key: "werkbon",
-    href: "/werkbon.html",
+    href: pageUrl("werkbon.html"),
     label: "Werkbon",
     icon: "werkbon",
   },
   {
     key: "addappointment",
-    href: "/add-appointment.html",
+    href: pageUrl("add-appointment.html"),
     label: "Add Appointment",
     icon: "addappointment",
   },
-  { key: "emails", href: "/emails.html", label: "E-mails", icon: "emails", showUnreadBadge: true },
-  { key: "analytics", href: "/analytics.html", label: "Analytics", icon: "analytics" },
+  { key: "emails", href: pageUrl("emails.html"), label: "E-mails", icon: "emails", showUnreadBadge: true },
+  { key: "analytics", href: pageUrl("analytics.html"), label: "Analytics", icon: "analytics" },
 ];
 
 const SIDEBAR_ICON_SRC = {
-  dashboard: "/sidebar-icons/dashboard.png",
-  appointments: "/sidebar-icons/appointment.png",
-  calendar: "/sidebar-icons/calender.png",
-  completed: "/sidebar-icons/succes.png",
-  werkbon: "/sidebar-icons/werkbon.png",
-  addappointment: "/sidebar-icons/addappointment.png",
-  emails: "/sidebar-icons/email.png",
-  analytics: "/sidebar-icons/analytics.png",
-  default: "/sidebar-icons/default.png",
+  dashboard: assetUrl("sidebar-icons/dashboard.png"),
+  appointments: assetUrl("sidebar-icons/appointment.png"),
+  calendar: assetUrl("sidebar-icons/calender.png"),
+  completed: assetUrl("sidebar-icons/succes.png"),
+  werkbon: assetUrl("sidebar-icons/werkbon.png"),
+  addappointment: assetUrl("sidebar-icons/addappointment.png"),
+  emails: assetUrl("sidebar-icons/email.png"),
+  analytics: assetUrl("sidebar-icons/analytics.png"),
+  default: assetUrl("sidebar-icons/default.png"),
 };
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "garage-dashboard.sidebar-collapsed";
@@ -125,7 +126,7 @@ export function createSidebar(
   sidebar.innerHTML = `
     <div class="sidebar-main">
       <div class="sidebar-brand-row">
-        <a href="/dashboard.html" class="brand">
+        <a href="${pageUrl("dashboard.html")}" class="brand">
           ${garageLogoMarkup(garage)}
           <span class="brand-text-wrap">
             <span class="brand-text">${garage?.name}</span>

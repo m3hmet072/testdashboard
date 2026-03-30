@@ -5,6 +5,7 @@ import { getBookings } from "../services/bookingService.js";
 import { summarizeEmailInbox } from "../services/emailService.js";
 import { ensureAuthenticated, logoutAndRedirect } from "../utils/auth.js";
 import { applyGarageBranding } from "../utils/branding.js";
+import { assetUrl } from "../utils/paths.js";
 
 const SERVICE_LABEL_BY_KEY = {
   apk: "APK",
@@ -186,7 +187,7 @@ export async function mountAnalyticsPage(rootElement) {
       <article class="metric-card">
        <div>
           <p>Today's visitors</p>
-          <img src="/sidebar-icons/userpurple.png" alt="Appointment icon">
+          <img src="${assetUrl("sidebar-icons/userpurple.png")}" alt="Appointment icon">
         </div>
         <h2 id="metricTodayVisitors">0</h2>
         <span class="metric-note">Unique visitors today</span>
@@ -194,7 +195,7 @@ export async function mountAnalyticsPage(rootElement) {
       <article class="metric-card">
          <div>
           <p>Total visitors</p>
-          <img src="/sidebar-icons/user.png" alt="Appointment icon">
+          <img src="${assetUrl("sidebar-icons/user.png")}" alt="Appointment icon">
         </div>
         <h2 id="metricTotalVisitors">0</h2>
         <span class="metric-note">All time visitors</span>
@@ -202,7 +203,7 @@ export async function mountAnalyticsPage(rootElement) {
       <article class="metric-card">
          <div>
           <p>Completed Appointments</p>
-          <img src="/sidebar-icons/succes.png" alt="Appointment icon">
+          <img src="${assetUrl("sidebar-icons/succes.png")}" alt="Appointment icon">
         </div>
         <h2 id="metricCompletedAppointments">0</h2>
         <span class="metric-note">All completed jobs</span>

@@ -11,6 +11,7 @@ import { fetchVehicleByLicensePlate, normalizeLicensePlate } from "../services/r
 import { ensureAuthenticated, logoutAndRedirect } from "../utils/auth.js";
 import { applyGarageBranding } from "../utils/branding.js";
 import { showConfirmDialog } from "../utils/confirmDialog.js";
+import { assetUrl, pageUrl } from "../utils/paths.js";
 import {
   formatScheduleDateLabel,
   handleScheduleTimePickerInteraction,
@@ -274,7 +275,7 @@ function requestCardsMarkup(bookings, expandedBookingId, editingBookingId, vehic
               <div class="request-expanded-grid">
                 <div class="request-contact-box">
                   <div class="request-box-label">
-                    <img src="/sidebar-icons/user.png" alt="" aria-hidden="true" />
+                    <img src="${assetUrl("sidebar-icons/user.png")}" alt="" aria-hidden="true" />
                     <span>Phone Number</span>
                   </div>
                   <div class="request-box-divider"></div>
@@ -282,7 +283,7 @@ function requestCardsMarkup(bookings, expandedBookingId, editingBookingId, vehic
                 </div>
                 <div class="request-message-box">
                   <div class="request-box-label">
-                    <img src="/sidebar-icons/text.png" alt="" aria-hidden="true" />
+                    <img src="${assetUrl("sidebar-icons/text.png")}" alt="" aria-hidden="true" />
                     <span>Message from client</span>
                   </div>
                   <div class="request-box-divider"></div>
@@ -753,7 +754,7 @@ export async function mountBookingsPage(rootElement) {
           return;
         }
 
-        window.location.href = "/completed.html";
+        window.location.href = pageUrl("completed.html");
         return;
       }
 

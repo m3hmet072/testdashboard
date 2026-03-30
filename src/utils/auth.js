@@ -6,6 +6,7 @@ import {
 import {
   resolveGarageContextForUser,
 } from "../services/garageService.js";
+import { pageUrl } from "./paths.js";
 
 const AUTH_CONTEXT_CACHE_KEY = "garage-dashboard.auth-context";
 const AUTH_CONTEXT_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -59,13 +60,13 @@ function clearCachedAuthContext() {
 
 export async function ensureAuthenticated() {
   if (!isSupabaseConfigured()) {
-    window.location.href = "/index.html";
+    window.location.href = pageUrl("index.html");
     return null;
   }
 
   const session = await getSession();
   if (!session) {
-    window.location.href = "/index.html";
+    window.location.href = pageUrl("index.html");
     return null;
   }
 
@@ -95,6 +96,6 @@ export async function logoutAndRedirect() {
     await signOut();
   } finally {
     clearCachedAuthContext();
-    window.location.href = "/index.html";
+    window.location.href = pageUrl("index.html");
   }
 }

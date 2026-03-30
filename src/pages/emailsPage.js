@@ -14,6 +14,7 @@ import { fetchVehicleByLicensePlate, normalizeLicensePlate } from "../services/r
 import { ensureAuthenticated, logoutAndRedirect } from "../utils/auth.js";
 import { applyGarageBranding } from "../utils/branding.js";
 import { showConfirmDialog } from "../utils/confirmDialog.js";
+import { assetUrl } from "../utils/paths.js";
 import {
   formatScheduleDateLabel,
   handleScheduleTimePickerInteraction,
@@ -248,7 +249,7 @@ function emailCardsMarkup(inboxEmails, expandedEmailId, editingEmailId, vehicleC
               <div class="request-expanded-grid">
                 <div class="request-contact-box">
                   <div class="request-box-label">
-                    <img src="/sidebar-icons/user.png" alt="" aria-hidden="true" />
+                    <img src="${assetUrl("sidebar-icons/user.png")}" alt="" aria-hidden="true" />
                     <span>Phone</span>
                   </div>
                   <div class="request-box-divider"></div>
@@ -256,7 +257,7 @@ function emailCardsMarkup(inboxEmails, expandedEmailId, editingEmailId, vehicleC
                 </div>
                 <div class="request-message-box">
                   <div class="request-box-label">
-                    <img src="/sidebar-icons/text.png" alt="" aria-hidden="true" />
+                    <img src="${assetUrl("sidebar-icons/text.png")}" alt="" aria-hidden="true" />
                     <span>Message</span>
                   </div>
                   <div class="request-box-divider"></div>

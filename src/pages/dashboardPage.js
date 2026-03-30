@@ -4,6 +4,7 @@ import { getBookings } from "../services/bookingService.js";
 import { summarizeEmailInbox } from "../services/emailService.js";
 import { ensureAuthenticated, logoutAndRedirect } from "../utils/auth.js";
 import { applyGarageBranding } from "../utils/branding.js";
+import { assetUrl, pageUrl } from "../utils/paths.js";
 
 const SERVICE_LABEL_BY_KEY = {
   apk: "APK",
@@ -278,20 +279,20 @@ export async function mountDashboardPage(rootElement) {
 
   contentArea.innerHTML = `
     <section class="metrics-grid">
-      <article class="metric-card"><div><p>Total Appointments</p><img src="/sidebar-icons/appointment.png" alt="Appointment icon"></div><h2 id="metricTotal">0</h2><p class="subtext">All appointments</p></article>
+      <article class="metric-card"><div><p>Total Appointments</p><img src="${assetUrl("sidebar-icons/appointment.png")}" alt="Appointment icon"></div><h2 id="metricTotal">0</h2><p class="subtext">All appointments</p></article>
       <div class="metric-divider"></div>
-      <article class="metric-card"><div><p>Today’s Schedule</p><img src="/sidebar-icons/calender.png" alt="Calendar icon"></div><h2 id="metricToday">0</h2><p class="subtext">Today's schedule</p></article>
+      <article class="metric-card"><div><p>Today’s Schedule</p><img src="${assetUrl("sidebar-icons/calender.png")}" alt="Calendar icon"></div><h2 id="metricToday">0</h2><p class="subtext">Today's schedule</p></article>
       <div class="metric-divider"></div>
-      <article class="metric-card"><div><p>Completed</p><img src="/sidebar-icons/succes.png" alt="Success icon"></div><h2 id="metricCompleted">0</h2><p class="subtext">Completed appointments</p></article>
+      <article class="metric-card"><div><p>Completed</p><img src="${assetUrl("sidebar-icons/succes.png")}" alt="Success icon"></div><h2 id="metricCompleted">0</h2><p class="subtext">Completed appointments</p></article>
       <div class="metric-divider"></div>
-      <article class="metric-card"><div><p>Pending Emails</p><img src="/sidebar-icons/email.png" alt="Email icon"></div><h2 id="metricEmails">0</h2><p class="subtext">Yet to read</p></article>
+      <article class="metric-card"><div><p>Pending Emails</p><img src="${assetUrl("sidebar-icons/email.png")}" alt="Email icon"></div><h2 id="metricEmails">0</h2><p class="subtext">Yet to read</p></article>
     </section>
 
     <section class="dashboard-main-grid">
       <section class="panel dashboard-schedule-panel">
         <div class="panel-heading spread">
           <h3>Today’s Schedule</h3>
-          <a class="panel-link" href="/bookings.html">View All <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <a class="panel-link" href="${pageUrl("bookings.html")}">View All <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M12.3335 8H3.3335" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M8.6665 12C8.6665 12 12.6665 9.05407 12.6665 8C12.6665 6.94587 8.6665 4 8.6665 4" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
@@ -303,7 +304,7 @@ export async function mountDashboardPage(rootElement) {
       <section class="panel dashboard-overview-panel">
         <div class="panel-heading spread">
           <h3>Appointment Overview</h3>
-          <a class="panel-link" href="/analytics.html">View All →</a>
+          <a class="panel-link" href="${pageUrl("analytics.html")}">View All →</a>
         </div>
 
         <div class="dashboard-overview-body">

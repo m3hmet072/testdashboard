@@ -5,6 +5,7 @@ import { summarizeEmailInbox } from "../services/emailService.js";
 import { ensureAuthenticated, logoutAndRedirect } from "../utils/auth.js";
 import { applyGarageBranding } from "../utils/branding.js";
 import { showConfirmDialog } from "../utils/confirmDialog.js";
+import { pageUrl } from "../utils/paths.js";
 
 const STATUS_META = {
   draft: {
@@ -283,7 +284,7 @@ function createMockInvoices() {
 }
 
 function prefetchWerkbonDetailDocument() {
-  const href = "/werkbon-detail.html";
+  const href = pageUrl("werkbon-detail.html");
   if (document.head.querySelector(`link[rel="prefetch"][href="${href}"]`)) {
     return;
   }
@@ -961,7 +962,7 @@ export async function mountWerkbonPage(rootElement) {
       }
 
       if (action === "view") {
-        window.location.href = `/werkbon-detail.html?id=${encodeURIComponent(invoiceId)}`;
+        window.location.href = pageUrl(`werkbon-detail.html?id=${encodeURIComponent(invoiceId)}`);
         return;
       }
 
