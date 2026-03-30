@@ -1,0 +1,1 @@
+.analytics-main-panel .chart-wrap{min-height:320px}.live-visitors-title{gap:12px}.live-visitors-dot{width:10px;height:10px;border-radius:999px;background:#16a34a;box-shadow:0 0 #16a34a73;animation:live-dot-pulse 1.8s ease-out infinite}@keyframes live-dot-pulse{0%{box-shadow:0 0 #16a34a73}70%{box-shadow:0 0 0 8px #16a34a00}to{box-shadow:0 0 #16a34a00}}
