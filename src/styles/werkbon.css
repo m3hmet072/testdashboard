@@ -920,7 +920,7 @@
     background: transparent;
     color: #ef4444;
     cursor: pointer;
-    transition: background 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+    transition: background 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 141ms ease;
 }
 
 .werkbon-remove-button svg {
