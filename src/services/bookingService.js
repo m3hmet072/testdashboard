@@ -632,6 +632,16 @@ export async function getCompletedAppointments({ garageIds = null } = {}) {
       notes = {};
     }
 
+    // Extract customerName from notes or description
+    let customerName = String(notes.customer_name ?? notes.customerName ?? "").trim();
+    if (!customerName && notes.description) {
+      // Try to extract from description ("Name: ...")
+      const match = String(notes.description).match(/\bname\s*:\s*([^\n]+)/i);
+      if (match && match[1]) {
+        customerName = match[1].trim();
+      }
+    }
+
     return {
       id: String(row.booking_id ?? row.id),
       completedAppointmentId: String(row.id ?? ""),
@@ -641,6 +651,7 @@ export async function getCompletedAppointments({ garageIds = null } = {}) {
       phone: String(notes.customer_phone ?? notes.customerPhone ?? ""),
       service: String(row.service ?? "Service"),
       message: String(notes.description ?? ""),
+      customerName,
       werkbonCreated: notes.werkbon_created === true,
       appointmentAt: row.appointment_date && row.appointment_time
         ? `${row.appointment_date}T${String(row.appointment_time).slice(0, 8)}`

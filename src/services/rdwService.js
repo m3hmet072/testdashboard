@@ -2,12 +2,12 @@ const RDW_VEHICLE_ENDPOINT = "https://opendata.rdw.nl/resource/m9d7-ebf2.json";
 const RDW_FUEL_ENDPOINT = "https://opendata.rdw.nl/resource/8ys7-d773.json";
 
 function toSafeText(value, fallback = "") {
-  const text = String(value ?? "").trim();
+  const text = String(value || "").trim();
   return text || fallback;
 }
 
 function parseRdwDate(rawValue) {
-  const value = String(rawValue ?? "").trim();
+  const value = String(rawValue || "").trim();
   if (!/^\d{8}$/.test(value)) {
     return null;
   }
@@ -110,6 +110,6 @@ export async function fetchVehicleByLicensePlate(licensePlate, { signal } = {}) 
     buildYear: firstRegistration ? String(firstRegistration.getFullYear()) : "Onbekend",
     apkExpiryDate: formatRdwDate(vehicleRow.vervaldatum_apk),
     color: toSafeText(vehicleRow.eerste_kleur, "Onbekend"),
-    fuel: toSafeText(fuelRow?.brandstof_omschrijving, "Onbekend"),
+    fuel: toSafeText(fuelRow && fuelRow.brandstof_omschrijving, "Onbekend"),
   };
 }

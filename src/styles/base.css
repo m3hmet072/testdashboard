@@ -1121,12 +1121,13 @@ tbody td:last-child {
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 4px;
   height: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d2daea;
+  background: var(--cccccc);
+  
   border-radius: 999px;
 }
 

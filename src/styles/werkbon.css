@@ -21,9 +21,20 @@
 
 .werkbon-topbar {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(150px, 190px);
+    grid-template-columns: minmax(0, 1fr) minmax(150px, 190px) auto;
     gap: 0.5rem;
     align-items: center;
+}
+
+.werkbon-create-trigger-wrap {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.werkbon-create-trigger-wrap .button {
+    min-height: 33px;
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(0, 107, 255, 0.2);
 }
 
 .werkbon-filter-field {
@@ -71,6 +82,16 @@
 
 .werkbon-search-field {
     position: relative;
+}
+
+.werkbon-search-field svg {
+    position: absolute;
+    left: 0.7rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--666666);
+    width: 0.92rem;
+    height: 0.92rem;
 }
 
 .werkbon-search-field input {
@@ -441,6 +462,711 @@
     background: #f6f7fb;
 }
 
+.werkbon-create-modal {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 92;
+    display: none;
+    overflow: hidden;
+}
+
+.werkbon-create-modal.is-open {
+    display: block;
+}
+
+.werkbon-create-shadow {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background:
+        radial-gradient(1100px 520px at 10% -10%, color-mix(in srgb, var(--completed) 18%, transparent), transparent 60%),
+        rgba(8, 12, 22, 0.7);
+    -webkit-backdrop-filter: blur(16px) saturate(1.1);
+    backdrop-filter: blur(16px) saturate(1.1);
+}
+
+.werkbon-create-panel {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    width: min(1120px, calc(100vw - 3rem));
+    height: calc(78% - 1rem);
+    max-height: calc(100% - 1rem);
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--fff) 92%, var(--fafafa)), var(--fff));
+    border-radius: 28px;
+    border: 1px solid color-mix(in srgb, var(--e6e6e6) 75%, transparent);
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.65) inset,
+        0 16px 38px rgba(15, 23, 42, 0.16),
+        0 34px 80px rgba(15, 23, 42, 0.2);
+    overflow: hidden;
+    margin: 0.5rem 0;
+    animation: werkbon-modal-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.werkbon-create-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.2rem 1.5rem 0.95rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--e6e6e6) 88%, transparent);
+    background: color-mix(in srgb, var(--fafafa) 62%, var(--fff));
+}
+
+.werkbon-create-header h2 {
+    margin: 0.35rem 0 0;
+    font-size: 1.65rem;
+}
+
+.werkbon-create-stepper {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.9rem 1.5rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--e6e6e6) 88%, transparent);
+    background: color-mix(in srgb, var(--fafafa) 58%, var(--fff));
+}
+
+.werkbon-create-step-separator {
+    height: 2px;
+    flex: 1 1 0;
+    min-width: 16px;
+    background: color-mix(in srgb, var(--cccccc) 68%, transparent);
+    border-radius: 999px;
+}
+
+.werkbon-create-step-separator.is-done {
+    background: color-mix(in srgb, var(--completed) 34%, var(--e6e6e6));
+}
+
+.werkbon-create-step {
+    position: relative;
+    border: 0;
+    background: color-mix(in srgb, var(--fafafa) 82%, var(--fff));
+    border: 1px solid color-mix(in srgb, var(--e6e6e6) 84%, transparent);
+    border-radius: 12px;
+    padding: 0.5rem 0.9rem;
+    color: var(--666666);
+    font: inherit;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    min-height: 38px;
+    gap: 0.48rem;
+    text-align: left;
+    white-space: nowrap;
+    transition: transform 140ms ease, background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.werkbon-create-step:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--completed) 22%, var(--e6e6e6));
+}
+
+.werkbon-create-step span {
+    display: none;
+}
+
+.werkbon-create-step::before {
+    content: "•";
+    font-size: 0.95rem;
+    line-height: 1;
+    color: color-mix(in srgb, var(--666666) 84%, transparent);
+}
+
+.werkbon-create-step.is-done {
+    background: color-mix(in srgb, var(--completed) 11%, var(--fff));
+    border-color: color-mix(in srgb, var(--completed) 28%, var(--e6e6e6));
+    color: color-mix(in srgb, var(--completed) 68%, var(--333333));
+}
+
+.werkbon-create-step.is-active {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--151618) 92%, #000), var(--151618));
+    border-color: color-mix(in srgb, var(--151618) 80%, #000);
+    color: #ffffff;
+    box-shadow: 0 8px 18px rgba(16, 24, 40, 0.22);
+}
+
+.werkbon-create-step.is-active span {
+    opacity: 1;
+}
+
+.werkbon-create-step.is-active::before {
+    color: #ffffff;
+}
+
+.werkbon-create-step[data-step="1"]::before {
+    content: "🚗";
+    font-size: 0.86rem;
+}
+
+.werkbon-create-step[data-step="2"]::before {
+    content: "👤";
+    font-size: 0.86rem;
+}
+
+.werkbon-create-step[data-step="3"]::before {
+    content: "🛠";
+    font-size: 0.86rem;
+}
+
+.werkbon-create-step[data-step="4"]::before {
+    content: "🕒";
+    font-size: 0.86rem;
+}
+
+.werkbon-create-step[data-step="5"]::before {
+    content: "✓";
+    font-size: 0.86rem;
+}
+
+.werkbon-create-content {
+    overflow-y: auto;
+    padding: 1.25rem 1.5rem;
+    min-height: 0;
+    overscroll-behavior: contain;
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--fff) 95%, var(--fafafa)), var(--fff));
+}
+
+.werkbon-create-body-step {
+    display: grid;
+    gap: 0.9rem;
+    max-width: 980px;
+}
+
+.werkbon-create-content .appointment-grid-two {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+}
+
+.werkbon-create-content .appointment-grid-two label,
+.werkbon-create-appointment-field {
+    display: grid;
+    gap: 8px;
+    color: var(--666666);
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.werkbon-create-content .appointment-grid-two label input,
+.werkbon-create-appointment-field input,
+.werkbon-create-appointment-field textarea {
+    border: 1px solid color-mix(in srgb, var(--e6e6e6) 92%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--fafafa) 62%, var(--fff));
+    color: var(--333333);
+    padding: 14px 16px;
+    font: inherit;
+    transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.werkbon-create-content .appointment-grid-two label input:focus,
+.werkbon-create-appointment-field input:focus,
+.werkbon-create-appointment-field textarea:focus {
+    outline: none;
+    border-color: color-mix(in srgb, var(--completed) 55%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--completed) 14%, transparent);
+    background: var(--fff);
+}
+
+.werkbon-create-content .appointment-grid-two label input::placeholder,
+.werkbon-create-appointment-field input::placeholder,
+.werkbon-create-appointment-field textarea::placeholder {
+    color: var(--999999);
+}
+
+.werkbon-create-rdw-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    flex-wrap: wrap;
+}
+
+.werkbon-create-vehicle-preview {
+    border: 1px solid color-mix(in srgb, var(--e6e6e6) 88%, transparent);
+    border-radius: 14px;
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--fafafa) 82%, var(--fff)), var(--fff));
+    padding: 0.84rem 0.92rem;
+    display: grid;
+    gap: 0.36rem;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+}
+
+.werkbon-create-vehicle-preview p {
+    margin: 0;
+    font-weight: bolder;
+    letter-spacing: 0.01em;
+}
+
+.werkbon-create-vehicle-preview .vehicle-preview-meta {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--666666);
+    flex-wrap: wrap;
+}
+
+.werkbon-create-vehicle-preview .vehicle-preview-meta strong {
+    color: var(--333333);
+    font-weight: 900;
+}
+
+.werkbon-create-grid-two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.werkbon-create-field {
+    display: grid;
+    gap: 0.35rem;
+    color: var(--666666);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.werkbon-create-field input,
+.werkbon-create-field textarea,
+.werkbon-create-field select {
+    border: 1px solid color-mix(in srgb, var(--e6e6e6) 88%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--fafafa) 56%, var(--fff));
+    color: var(--333333);
+    font: inherit;
+    padding: 0.62rem 0.75rem;
+}
+
+.werkbon-rdw-feedback {
+    margin: 0;
+    color: #334155;
+    font-weight: 600;
+}
+
+.werkbon-rdw-feedback.is-success {
+    color: #15803d;
+}
+
+.werkbon-rdw-feedback.is-error {
+    color: #b91c1c;
+}
+
+
+.werkbon-create-parts-step {
+    gap: 1rem;
+}
+
+.werkbon-create-section-copy {
+    display: grid;
+    gap: 0.2rem;
+}
+
+.werkbon-create-section-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    color: var(--333333);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.werkbon-create-section-subtitle {
+    margin: 0;
+    color: var(--666666);
+    font-size: 0.92rem;
+}
+
+.werkbon-create-quick-parts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.werkbon-chip-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 0.45rem 0.82rem;
+    border: 1px solid color-mix(in srgb, var(--e6e6e6) 92%, transparent);
+    border-radius: 10px;
+    background: var(--fff);
+    color: var(--333333);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    cursor: pointer;
+    transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease, color 140ms ease;
+}
+
+.werkbon-chip-button:hover {
+    background: color-mix(in srgb, var(--fafafa) 85%, var(--fff));
+    border-color: color-mix(in srgb, var(--e6e6e6) 60%, var(--999999));
+}
+
+.werkbon-chip-button:focus-visible,
+.werkbon-part-input:focus-visible,
+.werkbon-add-part-button:focus-visible,
+.werkbon-remove-button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--completed) 18%, transparent);
+    border-color: color-mix(in srgb, var(--completed) 48%, transparent);
+}
+
+.werkbon-create-parts-panel {
+    border: 1px solid color-mix(in srgb, var(--e6e6e6) 92%, transparent);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--fff);
+}
+
+.werkbon-create-parts-header,
+.werkbon-create-part-card {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(110px, 2fr) minmax(110px, 2fr) minmax(90px, 2fr) 48px;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.werkbon-create-parts-header {
+    padding: 0.95rem 1rem;
+    background: color-mix(in srgb, var(--fafafa) 90%, var(--e6e6e6));
+    color: var(--333333);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.werkbon-create-parts-list {
+    display: grid;
+}
+
+.werkbon-create-part-card {
+    padding: 0.95rem 1rem;
+    border-top: 1px solid color-mix(in srgb, var(--e6e6e6) 94%, transparent);
+}
+
+.werkbon-part-cell {
+    min-width: 0;
+}
+
+.werkbon-part-input {
+    width: 100%;
+    min-width: 0;
+    height: 38px;
+    border: 1px solid color-mix(in srgb, var(--e6e6e6) 92%, transparent);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--333333);
+    padding: 0.5rem 0.75rem;
+    font: inherit;
+    font-size: 0.92rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.werkbon-part-input::placeholder {
+    color: var(--999999);
+}
+
+.werkbon-currency-input {
+    position: relative;
+}
+
+.werkbon-currency-symbol {
+    position: absolute;
+    left: 0.78rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--666666);
+    font-size: 0.9rem;
+    pointer-events: none;
+}
+
+.werkbon-part-input-price {
+    padding-left: 1.8rem;
+}
+
+.werkbon-part-cell-total {
+    color: var(--333333);
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+
+.werkbon-remove-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: #ef4444;
+    cursor: pointer;
+    transition: background 140ms ease, color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.werkbon-remove-button svg {
+    width: 16px;
+    height: 16px;
+}
+
+.werkbon-remove-button:hover {
+    background: color-mix(in srgb, #ef4444 8%, var(--fff));
+    color: #dc2626;
+}
+
+.werkbon-add-part-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    width: 100%;
+    min-height: 40px;
+    padding: 0.68rem 1rem;
+    border: 1px dashed color-mix(in srgb, var(--e6e6e6) 70%, var(--999999));
+    border-radius: 12px;
+    background: var(--fff);
+    color: var(--333333);
+    font: inherit;
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    cursor: pointer;
+    transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.werkbon-add-part-button svg {
+    width: 16px;
+    height: 16px;
+}
+
+.werkbon-add-part-button:hover {
+    background: color-mix(in srgb, var(--fafafa) 88%, var(--fff));
+    border-color: color-mix(in srgb, var(--e6e6e6) 48%, var(--666666));
+}
+
+.werkbon-create-parts-subtotal {
+    display: grid;
+    justify-items: end;
+    gap: 0.12rem;
+    padding-top: 0.4rem;
+}
+
+.werkbon-create-parts-subtotal span {
+    color: var(--666666);
+    font-size: 0.88rem;
+}
+
+.werkbon-create-parts-subtotal strong {
+    color: var(--333333);
+    font-size: 1.48rem;
+    font-weight: 700;
+}
+
+:root[data-theme="dark"] .werkbon-create-section-title,
+:root[data-theme="dark"] .werkbon-create-parts-header,
+:root[data-theme="dark"] .werkbon-part-cell-total,
+:root[data-theme="dark"] .werkbon-create-parts-subtotal strong,
+body[data-theme="dark"] .werkbon-create-section-title,
+body[data-theme="dark"] .werkbon-create-parts-header,
+body[data-theme="dark"] .werkbon-part-cell-total,
+body[data-theme="dark"] .werkbon-create-parts-subtotal strong {
+    color: #f3f4f6;
+}
+
+:root[data-theme="dark"] .werkbon-create-section-subtitle,
+:root[data-theme="dark"] .werkbon-currency-symbol,
+:root[data-theme="dark"] .werkbon-create-parts-subtotal span,
+body[data-theme="dark"] .werkbon-create-section-subtitle,
+body[data-theme="dark"] .werkbon-currency-symbol,
+body[data-theme="dark"] .werkbon-create-parts-subtotal span {
+    color: #9ca3af;
+}
+
+:root[data-theme="dark"] .werkbon-create-parts-header,
+body[data-theme="dark"] .werkbon-create-parts-header {
+    background: #1a1e23;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme="dark"] .werkbon-create-part-card,
+body[data-theme="dark"] .werkbon-create-part-card {
+    border-top-color: rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme="dark"] .werkbon-remove-button:hover,
+body[data-theme="dark"] .werkbon-remove-button:hover {
+    background: rgba(239, 68, 68, 0.12);
+}
+
+.werkbon-create-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-weight: 600;
+    color: var(--333333);
+}
+
+.werkbon-create-calculation-card,
+.werkbon-create-overview-card {
+    border: 1px solid color-mix(in srgb, var(--e6e6e6) 88%, transparent);
+    border-radius: 18px;
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--fff) 92%, var(--fafafa)), var(--fff));
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.92) inset, var(--shadow);
+    padding: 0.85rem 0.95rem;
+    display: grid;
+    gap: 0.5rem;
+}
+
+.werkbon-create-overview {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.werkbon-create-overview-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.werkbon-create-overview-head h4 {
+    margin: 0;
+}
+
+.werkbon-create-overview-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+}
+
+.werkbon-create-actions {
+    border-top: 1px solid color-mix(in srgb, var(--e6e6e6) 88%, transparent);
+    padding: 0.95rem 1.5rem 1.15rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    background: color-mix(in srgb, var(--fafafa) 64%, var(--fff));
+}
+
+.werkbon-create-actions-left {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.werkbon-create-actions-right {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.werkbon-create-actions .button {
+    border: 1px solid color-mix(in srgb, var(--e6e6e6) 84%, transparent);
+    background: color-mix(in srgb, var(--fff) 90%, var(--fafafa));
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.92) inset;
+    color: var(--333333);
+    padding: 0.5rem 0.9rem;
+    border-radius: 12px;
+    min-height: 38px;
+}
+
+.werkbon-create-actions .button:hover {
+    border-color: color-mix(in srgb, var(--completed) 28%, var(--e6e6e6));
+    color: color-mix(in srgb, var(--completed) 74%, var(--333333));
+    transform: translateY(-1px);
+}
+
+.werkbon-create-actions .button:disabled {
+    background: color-mix(in srgb, var(--fafafa) 90%, var(--fff));
+    border-color: color-mix(in srgb, var(--e6e6e6) 82%, transparent);
+    color: color-mix(in srgb, var(--666666) 55%, transparent);
+    transform: none;
+}
+
+.werkbon-create-saving {
+    position: absolute;
+    right: 1.4rem;
+    bottom: 5.3rem;
+    background: #0f172a;
+    color: #ffffff;
+    border-radius: 999px;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.78rem;
+}
+
+.werkbon-payment-overlay {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: rgba(10, 15, 27, 0.45);
+}
+
+.werkbon-payment-dialog {
+    width: min(420px, calc(100vw - 2rem));
+    background: #ffffff;
+    border-radius: 18px;
+    border: 1px solid var(--e6e6e6);
+    box-shadow: 0 16px 46px rgba(15, 23, 42, 0.22);
+    padding: 1rem;
+    display: grid;
+    gap: 0.8rem;
+}
+
+.werkbon-payment-dialog h3 {
+    margin: 0;
+}
+
+.werkbon-payment-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.45rem;
+}
+
+.werkbon-payment-method.is-active {
+    border-color: #1d4ed8;
+    color: #1d4ed8;
+    background: #eff6ff;
+}
+
+.werkbon-payment-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+@keyframes werkbon-modal-in {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 :root[data-theme="dark"] .werkbon-labour-grid,
 body[data-theme="dark"] .werkbon-labour-grid {
     background: #15181b;
@@ -457,61 +1183,171 @@ body[data-theme="dark"] .werkbon-summary-item {
 }
 
 :root[data-theme="dark"] .werkbon-labour-grid>div strong,
-:root[data-theme="dark"] .werkbon-line-item strong,
-body[data-theme="dark"] .werkbon-labour-grid>div strong,
-body[data-theme="dark"] .werkbon-line-item strong,
-:root[data-theme="dark"] .werkbon-summary-item strong,
-body[data-theme="dark"] .werkbon-summary-item strong {
+body[data-theme="dark"] .werkbon-create-step,
+body[data-theme="dark"] .werkbon-create-field input,
+body[data-theme="dark"] .werkbon-create-field textarea,
+body[data-theme="dark"] .werkbon-create-field select,
+body[data-theme="dark"] .werkbon-create-content .appointment-grid-two label input,
+body[data-theme="dark"] .werkbon-create-appointment-field input,
+body[data-theme="dark"] .werkbon-create-appointment-field textarea,
+body[data-theme="dark"] .werkbon-create-parts-panel,
+body[data-theme="dark"] .werkbon-part-input,
+body[data-theme="dark"] .werkbon-chip-button,
+body[data-theme="dark"] .werkbon-add-part-button,
+body[data-theme="dark"] .werkbon-create-vehicle-preview,
+body[data-theme="dark"] .werkbon-create-overview-card,
+body[data-theme="dark"] .werkbon-create-calculation-card {
+    background: #15181b;
+    border-color: rgba(255, 255, 255, 0.08);
     color: #f3f4f6;
 }
 
-:root[data-theme="dark"] .werkbon-labour-grid>div span,
-:root[data-theme="dark"] .werkbon-line-item span,
-:root[data-theme="dark"] .werkbon-summary-item span,
-body[data-theme="dark"] .werkbon-labour-grid>div span,
-body[data-theme="dark"] .werkbon-line-item span,
-body[data-theme="dark"] .werkbon-summary-item span {
-    color: #f3f4f6;
+:root[data-theme="dark"] .werkbon-create-step,
+body[data-theme="dark"] .werkbon-create-step {
+    background: color-mix(in srgb, #1f2328 88%, #111417);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: #d0d0d0;
 }
 
-:root[data-theme="dark"] .werkbon-parts-summary,
-:root[data-theme="dark"] .werkbon-summary-item,
-body[data-theme="dark"] .werkbon-parts-summary,
-body[data-theme="dark"] .werkbon-summary-item {
+:root[data-theme="dark"] .werkbon-create-step::before,
+body[data-theme="dark"] .werkbon-create-step::before {
+    color: #9ca3af;
+}
+
+:root[data-theme="dark"] .werkbon-create-step-separator,
+body[data-theme="dark"] .werkbon-create-step-separator {
+    background: #3b3b3b;
+}
+
+:root[data-theme="dark"] .werkbon-create-step.is-done,
+body[data-theme="dark"] .werkbon-create-step.is-done {
+    background: color-mix(in srgb, var(--completed) 16%, #1a2027);
+    border-color: color-mix(in srgb, var(--completed) 36%, rgba(255, 255, 255, 0.08));
+    color: #dbeafe;
+}
+
+:root[data-theme="dark"] .werkbon-create-step-separator.is-done,
+body[data-theme="dark"] .werkbon-create-step-separator.is-done {
+    background: #3b3b3b;
+}
+
+:root[data-theme="dark"] .werkbon-create-step.is-active,
+body[data-theme="dark"] .werkbon-create-step.is-active {
+    background: linear-gradient(180deg, #f8fafc, #e5e7eb);
+    border-color: rgba(255, 255, 255, 0.26);
+    color: #0f172a;
+}
+
+:root[data-theme="dark"] .werkbon-create-step.is-active::before,
+body[data-theme="dark"] .werkbon-create-step.is-active::before {
+    color: #0f172a;
+}
+
+:root[data-theme="dark"] .werkbon-create-panel,
+body[data-theme="dark"] .werkbon-create-panel {
+    background: linear-gradient(180deg, #14181d, #101315);
     border-color: rgba(255, 255, 255, 0.08);
 }
 
-:root[data-theme="dark"] .werkbon-topbar,
-body[data-theme="dark"] .werkbon-topbar {
-    background: transparent;
+:root[data-theme="dark"] .werkbon-create-step,
+:root[data-theme="dark"] .werkbon-create-field input,
+:root[data-theme="dark"] .werkbon-create-field textarea,
+:root[data-theme="dark"] .werkbon-create-field select,
+:root[data-theme="dark"] .werkbon-create-content .appointment-grid-two label input,
+:root[data-theme="dark"] .werkbon-create-appointment-field input,
+:root[data-theme="dark"] .werkbon-create-appointment-field textarea,
+:root[data-theme="dark"] .werkbon-create-parts-panel,
+:root[data-theme="dark"] .werkbon-part-input,
+:root[data-theme="dark"] .werkbon-chip-button,
+:root[data-theme="dark"] .werkbon-add-part-button,
+:root[data-theme="dark"] .werkbon-create-vehicle-preview,
+:root[data-theme="dark"] .werkbon-create-overview-card,
+:root[data-theme="dark"] .werkbon-create-calculation-card,
+body[data-theme="dark"] .werkbon-create-step,
+body[data-theme="dark"] .werkbon-create-field input,
+body[data-theme="dark"] .werkbon-create-field textarea,
+body[data-theme="dark"] .werkbon-create-field select,
+body[data-theme="dark"] .werkbon-create-content .appointment-grid-two label input,
+body[data-theme="dark"] .werkbon-create-appointment-field input,
+body[data-theme="dark"] .werkbon-create-appointment-field textarea,
+body[data-theme="dark"] .werkbon-create-parts-panel,
+body[data-theme="dark"] .werkbon-part-input,
+body[data-theme="dark"] .werkbon-chip-button,
+body[data-theme="dark"] .werkbon-add-part-button,
+body[data-theme="dark"] .werkbon-create-vehicle-preview,
+body[data-theme="dark"] .werkbon-create-overview-card,
+body[data-theme="dark"] .werkbon-create-calculation-card {
+    background: #15181b;
+    border-color: rgba(255, 255, 255, 0.08);
+    color: #f3f4f6;
+}
+
+:root[data-theme="dark"] .werkbon-create-step,
+body[data-theme="dark"] .werkbon-create-step {
+    background: #1f2328;
+    color: #d0d0d0;
+}
+
+:root[data-theme="dark"] .werkbon-create-step::before,
+body[data-theme="dark"] .werkbon-create-step::before {
+    color: #9ca3af;
+}
+
+:root[data-theme="dark"] .werkbon-create-step-separator,
+body[data-theme="dark"] .werkbon-create-step-separator {
+    background: #3b3b3b;
+}
+
+:root[data-theme="dark"] .werkbon-create-step.is-done,
+body[data-theme="dark"] .werkbon-create-step.is-done {
+    background: #1f2328;
+    color: #e5e7eb;
+}
+
+:root[data-theme="dark"] .werkbon-create-step-separator.is-done,
+body[data-theme="dark"] .werkbon-create-step-separator.is-done {
+    background: #3b3b3b;
+}
+
+:root[data-theme="dark"] .werkbon-create-step.is-active,
+body[data-theme="dark"] .werkbon-create-step.is-active {
+    background: #f8fafc;
+    color: #0f172a;
+}
+
+:root[data-theme="dark"] .werkbon-create-step.is-active::before,
+body[data-theme="dark"] .werkbon-create-step.is-active::before {
+    color: #0f172a;
+}
+
+:root[data-theme="dark"] .werkbon-create-actions .button,
+body[data-theme="dark"] .werkbon-create-actions .button {
+    background: #1a2027;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #d1d5db;
     box-shadow: none;
 }
 
-:root[data-theme="dark"] .werkbon-summary-card,
-body[data-theme="dark"] .werkbon-summary-card {
-    background: #15181b;
-    border-color: rgba(255, 255, 255, 0.08);
+:root[data-theme="dark"] .werkbon-create-actions .button:hover,
+body[data-theme="dark"] .werkbon-create-actions .button:hover {
+    border-color: color-mix(in srgb, var(--completed) 40%, rgba(255, 255, 255, 0.1));
+    color: #f8fafc;
 }
 
-:root[data-theme="dark"] .werkbon-filter-field select,
-:root[data-theme="dark"] .werkbon-filter-field input,
-body[data-theme="dark"] .werkbon-filter-field select,
-body[data-theme="dark"] .werkbon-filter-field input {
-    border-color: rgba(255, 255, 255, 0.1);
-    background-color: rgba(20, 23, 27, 0.94);
-    color: #f3f4f6;
+:root[data-theme="dark"] .werkbon-create-actions .button:disabled,
+body[data-theme="dark"] .werkbon-create-actions .button:disabled {
+    color: #64748b;
 }
 
-:root[data-theme="dark"] .werkbon-drawer-panel,
-:root[data-theme="dark"] .werkbon-modal-actions,
-body[data-theme="dark"] .werkbon-drawer-panel,
-body[data-theme="dark"] .werkbon-modal-actions {
-    background: #101315;
+:root[data-theme="dark"] .werkbon-create-actions,
+body[data-theme="dark"] .werkbon-create-actions {
+    background: #13181d;
+    border-top-color: rgba(255, 255, 255, 0.08);
 }
 
 @media (max-width: 1200px) {
     .werkbon-topbar {
-        grid-template-columns: minmax(0, 1fr) minmax(140px, 180px);
+        grid-template-columns: minmax(0, 1fr) minmax(140px, 180px) auto;
     }
 
     .werkbon-summary-grid {
@@ -527,6 +1363,10 @@ body[data-theme="dark"] .werkbon-modal-actions {
     .werkbon-labour-grid {
         grid-template-columns: 1fr;
     }
+
+    .werkbon-create-overview {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 760px) {
@@ -536,6 +1376,10 @@ body[data-theme="dark"] .werkbon-modal-actions {
 
     .werkbon-topbar {
         grid-template-columns: 1fr;
+    }
+
+    .werkbon-create-trigger-wrap {
+        justify-content: flex-start;
     }
 
     .werkbon-labour-grid,
@@ -589,1126 +1433,84 @@ body[data-theme="dark"] .werkbon-modal-actions {
     .werkbon-modal-meta {
         grid-template-columns: 1fr;
     }
-}
 
-/* ─── Werkbon Detail Page ──────────────────────────────────────────────────── */
-
-.werkbon-detail-page {
-    display: grid;
-    gap: 1rem;
-    width: 100%;
-}
-
-.werkbon-detail-main-container {
-    border: 1px solid var(--e6e6e6);
-    border-radius: 16px;
-    background: var(--fff);
-    box-shadow: 0 2px 10px rgba(16, 24, 40, 0.03);
-    overflow: hidden;
-    padding: 0;
-}
-
-.werkbon-detail-back {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-}
-
-.werkbon-detail-back-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.82rem;
-}
-
-.werkbon-detail-back .icon-button {
-    padding: 0.45rem;
-    flex-shrink: 0;
-}
-
-.werkbon-detail-header-panel {
-    padding: 1.5rem 1.75rem;
-    border-bottom: 1px solid var(--e6e6e6);
-    background: transparent;
-    box-shadow: none;
-}
-
-.werkbon-detail-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1.25rem;
-    flex-wrap: wrap;
-}
-
-.werkbon-detail-header-info {
-    display: grid;
-    gap: 0.45rem;
-}
-
-.werkbon-detail-id {
-    margin: 0;
-    font-size: 0.78rem;
-    color: var(--666666);
-    font-weight: 600;
-}
-
-.werkbon-detail-identity-row {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    flex-wrap: wrap;
-}
-
-.werkbon-detail-customer-inline {
-    margin: 0;
-    font-size: 1.02rem;
-    font-weight: 700;
-    color: var(--151618);
-}
-
-.werkbon-detail-heading {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    flex-wrap: wrap;
-}
-
-.werkbon-detail-plate {
-    font-size: 1.05rem;
-    padding: 0.35rem 0.9rem;
-}
-
-.werkbon-detail-customer {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--333333);
-}
-
-.werkbon-detail-meta {
-    margin: 0;
-    font-size: 0.85rem;
-    color: var(--666666);
-}
-
-.werkbon-total-pill {
-    margin-top: 0.6rem;
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.55rem;
-    padding: 0.5rem 0.75rem;
-    border-radius: 12px;
-    border: 1px solid var(--e6e6e6);
-    background: #f9fbff;
-    width: fit-content;
-}
-
-.werkbon-total-pill span {
-    font-size: 0.76rem;
-    color: #475467;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-}
-
-.werkbon-total-pill strong {
-    font-size: 1.25rem;
-    color: var(--151618);
-    line-height: 1;
-}
-
-.werkbon-detail-services {
-    margin-top: 0.2rem;
-}
-
-.werkbon-detail-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    flex-shrink: 0;
-    justify-content: flex-end;
-}
-
-.werkbon-detail-actions .button {
-    min-height: 36px;
-}
-
-.werkbon-action-primary {
-    background: #0f172a;
-    color: #ffffff;
-}
-
-.werkbon-action-primary:hover {
-    background: #1e293b;
-}
-
-.werkbon-detail-edit-panel {
-    padding: 1.25rem 1.5rem;
-}
-
-.werkbon-edit-parts {
-    margin-top: 1rem;
-    padding-top: 0.9rem;
-    border-top: 1px solid var(--e6e6e6);
-    display: grid;
-    gap: 0.55rem;
-}
-
-.werkbon-edit-parts-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-}
-
-.werkbon-edit-parts-head h3 {
-    margin: 0;
-    font-size: 0.96rem;
-    color: var(--333333);
-}
-
-.werkbon-edit-parts-meta,
-.werkbon-edit-part-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 90px 120px auto;
-    gap: 0.5rem;
-    align-items: center;
-}
-
-.werkbon-edit-parts-meta {
-    color: var(--666666);
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    padding: 0.1rem 0.1rem;
-}
-
-.werkbon-edit-parts-list {
-    display: grid;
-    gap: 0.45rem;
-}
-
-.werkbon-edit-part-row input {
-    border: 1px solid var(--e6e6e6);
-    border-radius: 8px;
-    padding: 0.48rem 0.6rem;
-    background: var(--fff);
-    color: var(--333333);
-    font: inherit;
-    min-width: 0;
-}
-
-.werkbon-edit-part-row .icon-button {
-    width: 34px;
-    height: 34px;
-}
-
-.werkbon-detail-edit-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    margin-top: 1rem;
-    padding-top: 0.85rem;
-    border-top: 1px solid var(--e6e6e6);
-}
-
-.werkbon-detail-summary {
-    max-width: 420px;
-}
-
-.werkbon-parts-summary {
-    display: grid;
-    gap: 0;
-    margin-top: 0.5rem;
-    padding-top: 0.35rem;
-    border-top: 2px solid var(--e6e6e6);
-}
-
-.werkbon-summary-item {
-    display: grid;
-    grid-template-columns: minmax(0, 1.6fr) 0.55fr 0.85fr 0.85fr;
-    gap: 0.6rem;
-    align-items: center;
-    padding: 0.95rem 0;
-    border-bottom: 1px solid var(--e6e6e6);
-}
-
-.werkbon-summary-item span {
-    color: var(--333333);
-    font-size: 0.9rem;
-    font-weight: 500;
-}
-
-.werkbon-summary-item strong {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--333333);
-    text-align: right;
-}
-
-.werkbon-summary-total {
-    padding-top: 0.5rem;
-    padding-bottom: 0;
-    border-top: 1px solid var(--e6e6e6);
-    border-bottom: none;
-}
-
-.werkbon-summary-total strong {
-    font-size: 1.05rem;
-    font-weight: 800;
-    color: var(--151618);
-}
-
-.werkbon-detail-grid {
-    grid-template-columns: minmax(0, 1.45fr) minmax(280px, 1fr);
-    align-items: start;
-    gap: 0.95rem;
-}
-
-.werkbon-detail-page .werkbon-parts-section,
-.werkbon-detail-page .werkbon-labour-section {
-    border: 1px solid var(--e6e6e6);
-    border-radius: 16px;
-    background: #ffffff;
-    box-shadow: 0 3px 10px rgba(16, 24, 40, 0.04);
-}
-
-.werkbon-section-subtitle {
-    margin: 0.2rem 0 0;
-    font-size: 0.82rem;
-    color: var(--666666);
-}
-
-.werkbon-detail-page .werkbon-line-items-head {
-    margin-top: 0.25rem;
-    padding: 0.6rem 0.7rem;
-    border: 1px solid var(--e6e6e6);
-    border-radius: 10px;
-    background: #f6f8fc;
-    color: var(--666666);
-    font-size: 0.7rem;
-}
-
-.werkbon-detail-page .werkbon-line-items {
-    margin-top: 0.25rem;
-}
-
-.werkbon-detail-page .werkbon-line-item {
-    padding: 0.75rem 0.7rem;
-}
-
-.werkbon-detail-page .werkbon-line-item:nth-child(even) {
-    background: #fbfcff;
-}
-
-.werkbon-detail-page .werkbon-line-item:hover {
-    background: #f5f8ff;
-}
-
-.werkbon-labour-cards {
-    display: grid;
-    gap: 0.65rem;
-}
-
-.werkbon-labour-card {
-    border: 1px solid var(--e6e6e6);
-    border-radius: 12px;
-    padding: 0.9rem 0.95rem;
-    background: var(--fff);
-    display: grid;
-    gap: 0.25rem;
-}
-
-.werkbon-labour-card strong {
-    font-size: 1.2rem;
-    color: var(--333333);
-}
-
-.werkbon-labour-card-total {
-    background: #f5f8ff;
-    border-color: #dbe6ff;
-}
-
-@media (max-width: 760px) {
-    .werkbon-detail-header {
-        flex-direction: column;
+    .werkbon-create-panel {
+        width: min(100%, calc(100vw - 1rem));
+        height: 100%;
+        max-height: 100%;
+        border-radius: 16px;
     }
 
-    .werkbon-detail-actions {
-        width: 100%;
+    .werkbon-create-grid-two,
+    .werkbon-create-content .appointment-grid-two,
+    .werkbon-payment-grid {
+        grid-template-columns: 1fr;
     }
 
-    .werkbon-detail-actions .button {
-        flex: 1 1 calc(50% - 0.5rem);
-        justify-content: center;
+    .werkbon-create-stepper {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 0.55rem;
+        padding: 0.75rem 1rem;
     }
 
-    .werkbon-total-pill {
-        width: 100%;
-        justify-content: space-between;
+    .werkbon-create-step {
+        flex: 0 0 auto;
+        font-size: 0.88rem;
+        min-height: 36px;
+        padding: 0.42rem 0.72rem;
     }
 
-    .werkbon-detail-summary {
-        max-width: none;
+    .werkbon-create-step-separator {
+        flex: 0 0 12px;
+        min-width: 12px;
     }
 
-    .werkbon-edit-parts-meta {
+    .werkbon-create-parts-header {
         display: none;
     }
 
-    .werkbon-edit-part-row {
+    .werkbon-create-parts-panel {
+        border: none;
+        background: transparent;
+        overflow: visible;
+    }
+
+    .werkbon-create-parts-list {
+        gap: 0.75rem;
+    }
+
+    .werkbon-create-part-card {
         grid-template-columns: 1fr;
-    }
-
-    .werkbon-edit-part-row .icon-button {
-        justify-self: end;
-    }
-
-    .werkbon-detail-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-:root[data-theme="dark"] .werkbon-edit-parts,
-body[data-theme="dark"] .werkbon-edit-parts {
-    border-top-color: rgba(255, 255, 255, 0.08);
-}
-
-:root[data-theme="dark"] .werkbon-edit-part-row input,
-body[data-theme="dark"] .werkbon-edit-part-row input {
-    background: #111417;
-    border-color: rgba(255, 255, 255, 0.1);
-    color: #f3f4f6;
-}
-
-:root[data-theme="dark"] .werkbon-detail-page .werkbon-parts-section,
-:root[data-theme="dark"] .werkbon-detail-page .werkbon-labour-section,
-body[data-theme="dark"] .werkbon-detail-page .werkbon-parts-section,
-body[data-theme="dark"] .werkbon-detail-page .werkbon-labour-section {
-    background: linear-gradient(180deg, #15181b, #121518);
-    border-color: rgba(255, 255, 255, 0.08);
-    box-shadow: none;
-}
-
-:root[data-theme="dark"] .werkbon-detail-header-panel,
-body[data-theme="dark"] .werkbon-detail-header-panel {
-    background: #15181b;
-    border-color: rgba(255, 255, 255, 0.08);
-    box-shadow: none;
-}
-
-:root[data-theme="dark"] .werkbon-detail-main-container,
-body[data-theme="dark"] .werkbon-detail-main-container {
-    background: #15181b;
-    border-color: rgba(255, 255, 255, 0.08);
-    box-shadow: none;
-}
-
-:root[data-theme="dark"] .werkbon-total-pill,
-body[data-theme="dark"] .werkbon-total-pill {
-    background: #111417;
-    border-color: rgba(255, 255, 255, 0.1);
-}
-
-:root[data-theme="dark"] .werkbon-total-pill span,
-body[data-theme="dark"] .werkbon-total-pill span {
-    color: rgba(255, 255, 255, 0.62);
-}
-
-:root[data-theme="dark"] .werkbon-total-pill strong,
-body[data-theme="dark"] .werkbon-total-pill strong {
-    color: #f3f4f6;
-}
-
-:root[data-theme="dark"] .werkbon-action-primary,
-body[data-theme="dark"] .werkbon-action-primary {
-    background: #2563eb;
-}
-
-:root[data-theme="dark"] .werkbon-action-primary:hover,
-body[data-theme="dark"] .werkbon-action-primary:hover {
-    background: #1d4ed8;
-}
-
-:root[data-theme="dark"] .werkbon-detail-page .werkbon-line-items-head,
-body[data-theme="dark"] .werkbon-detail-page .werkbon-line-items-head {
-    background: #13171a;
-    border-color: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.62);
-}
-
-:root[data-theme="dark"] .werkbon-detail-page .werkbon-line-item:nth-child(even),
-body[data-theme="dark"] .werkbon-detail-page .werkbon-line-item:nth-child(even) {
-    background: rgba(255, 255, 255, 0.03);
-}
-
-:root[data-theme="dark"] .werkbon-labour-card,
-body[data-theme="dark"] .werkbon-labour-card {
-    background: #111417;
-    border-color: rgba(255, 255, 255, 0.09);
-}
-
-:root[data-theme="dark"] .werkbon-labour-card strong,
-body[data-theme="dark"] .werkbon-labour-card strong {
-    color: #f3f4f6;
-}
-
-:root[data-theme="dark"] .werkbon-labour-card-total,
-body[data-theme="dark"] .werkbon-labour-card-total {
-    background: #182133;
-    border-color: rgba(96, 165, 250, 0.35);
-}
-
-/* Customer-facing invoice sheet style */
-.werkbon-customer-sheet {
-    border: 0;
-    border-radius: 0;
-    padding: 1rem 1.1rem;
-    background: transparent;
-    box-shadow: none;
-}
-
-.werkbon-customer-title {
-    margin: 0 0 0.75rem;
-    font-size: 1.05rem;
-    color: var(--151618);
-}
-
-.werkbon-customer-title-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.6rem;
-    margin-bottom: 0.2rem;
-}
-
-.werkbon-customer-head,
-.werkbon-customer-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 110px 70px 110px;
-    gap: 0.6rem;
-    align-items: center;
-}
-
-.werkbon-customer-head {
-    color: var(--666666);
-    font-size: 0.82rem;
-    font-weight: 500;
-    padding: 0 0 0.45rem;
-    border-bottom: 1px solid var(--e6e6e6);
-}
-
-.werkbon-customer-head span:nth-child(n+2),
-.werkbon-customer-row span:nth-child(n+2),
-.werkbon-customer-row strong:last-child {
-    text-align: center;
-}
-
-.werkbon-customer-head span:first-child,
-.werkbon-customer-product-cell,
-.werkbon-customer-product-cell strong {
-    text-align: left;
-    justify-self: start;
-}
-
-.werkbon-customer-body {
-    display: grid;
-}
-
-.werkbon-add-part-button {
-    width: 100%;
-    margin-top: 0.65rem;
-    justify-content: center;
-    background: #2563eb;
-    border-color: #2563eb;
-    color: #ffffff;
-}
-
-.werkbon-add-part-button:hover {
-    background: #1d4ed8;
-    border-color: #1d4ed8;
-}
-
-.werkbon-customer-row {
-    padding: 0.7rem 0;
-    border-bottom: 1px solid var(--e6e6e6);
-}
-
-.werkbon-customer-row-edit {
-    grid-template-columns: minmax(0, 1fr) 110px 70px 110px;
-}
-
-.werkbon-customer-product-cell {
-    display: grid;
-    gap: 0.22rem;
-    align-items: start;
-}
-
-.werkbon-customer-product-cell strong {
-    font-weight: 600;
-    color: var(--151618);
-}
-
-.werkbon-customer-row-edit > .werkbon-customer-product-cell input,
-.werkbon-customer-row-edit > input[data-detail-part-qty] {
-    width: 100%;
-    border: 1px solid var(--e6e6e6);
-    border-radius: 8px;
-    padding: 0.46rem 0.55rem;
-    font: inherit;
-    background: var(--fff);
-    color: var(--151618);
-}
-
-.werkbon-input-affix {
-    display: flex;
-    align-items: center;
-    gap: 0.38rem;
-    border: 1px solid var(--e6e6e6);
-    border-radius: 8px;
-    background: var(--fff);
-    padding: 0 0.52rem;
-    min-height: 36px;
-}
-
-.werkbon-input-affix > span {
-    color: var(--666666);
-    font-size: 0.82rem;
-    font-weight: 600;
-    white-space: nowrap;
-}
-
-.werkbon-input-affix input {
-    border: 0;
-    outline: 0;
-    background: transparent;
-    width: 100%;
-    min-width: 0;
-    color: var(--151618);
-    font: inherit;
-    padding: 0.46rem 0;
-}
-
-.werkbon-input-affix input::-webkit-outer-spin-button,
-.werkbon-input-affix input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-
-.werkbon-input-affix input[type="number"] {
-    -moz-appearance: textfield;
-}
-
-.werkbon-input-affix:focus-within {
-    border-color: rgba(0, 130, 251, 0.55);
-    box-shadow: 0 0 0 3px rgba(0, 130, 251, 0.16);
-}
-
-.werkbon-customer-row-edit > input[data-detail-part-qty] {
-    text-align: center;
-}
-
-.werkbon-customer-total-cell {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.42rem;
-}
-
-.werkbon-customer-total-cell .icon-button {
-    width: 28px;
-    height: 28px;
-}
-
-.werkbon-customer-labour {
-    margin-top: 0.9rem;
-    padding-top: 0.75rem;
-}
-
-.werkbon-customer-labour h4 {
-    margin: 0;
-    font-size: 1rem;
-}
-
-.werkbon-customer-labour p {
-    margin: 0.5rem 0 0;
-    color: var(--666666);
-}
-
-.werkbon-customer-labour p strong {
-    color: var(--151618);
-}
-
-.werkbon-customer-labour-edit {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 220px));
-    gap: 0.65rem;
-    margin-top: 0.6rem;
-}
-
-.werkbon-customer-labour-edit label {
-    display: grid;
-    gap: 0.3rem;
-}
-
-.werkbon-customer-labour-edit label span {
-    font-size: 0.78rem;
-    color: var(--666666);
-    font-weight: 600;
-}
-
-.werkbon-customer-labour-edit > label > input {
-    border: 1px solid var(--e6e6e6);
-    border-radius: 8px;
-    padding: 0.5rem 0.62rem;
-    background: var(--fff);
-    color: var(--151618);
-    font: inherit;
-}
-
-.werkbon-customer-labour-edit .werkbon-input-affix {
-    min-height: 38px;
-}
-
-.werkbon-hour-minute-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 0.5rem;
-}
-
-.werkbon-customer-summary {
-    margin-top: 0.95rem;
-    padding-top: 0.8rem;
-    border-top: 1px solid var(--e6e6e6);
-    display: grid;
-    gap: 0.35rem;
-}
-
-.werkbon-customer-summary > div {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    color: var(--666666);
-}
-
-.werkbon-customer-summary > div strong {
-    color: var(--151618);
-    font-weight: 600;
-}
-
-.werkbon-customer-total {
-    margin-top: 0.15rem;
-    padding-top: 0.55rem;
-    border-top: 1px solid var(--e6e6e6);
-}
-
-.werkbon-customer-total span {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--151618);
-}
-
-.werkbon-customer-total strong {
-    font-size: 2rem;
-    font-weight: 800;
-    color: #2563eb;
-}
-
-.werkbon-customer-actions {
-    margin-top: 1rem;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.werkbon-customer-actions .button {
-    min-height: 36px;
-}
-
-.werkbon-whatsapp-button {
-    color: #16a34a;
-    border-color: rgba(22, 163, 74, 0.28);
-    background: #f0fdf4;
-}
-
-.werkbon-whatsapp-button:hover {
-    background: #dcfce7;
-}
-
-@media (max-width: 760px) {
-    .werkbon-customer-head,
-    .werkbon-customer-row {
-        grid-template-columns: minmax(0, 1fr) 76px 54px 86px;
-        gap: 0.4rem;
-        font-size: 0.86rem;
-    }
-
-    .werkbon-customer-actions .button {
-        flex: 1 1 calc(50% - 0.5rem);
-    }
-
-    .werkbon-customer-labour-edit {
-        grid-template-columns: 1fr;
-    }
-
-    .werkbon-customer-total span,
-    .werkbon-customer-total strong {
-        font-size: 1.5rem;
-    }
-}
-
-:root[data-theme="dark"] .werkbon-customer-sheet,
-body[data-theme="dark"] .werkbon-customer-sheet {
-    background: transparent;
-    border-color: transparent;
-    box-shadow: none;
-}
-
-:root[data-theme="dark"] .werkbon-detail-customer-inline,
-body[data-theme="dark"] .werkbon-detail-customer-inline {
-    color: #f3f4f6;
-}
-
-:root[data-theme="dark"] .werkbon-customer-head,
-:root[data-theme="dark"] .werkbon-customer-row,
-:root[data-theme="dark"] .werkbon-customer-summary,
-:root[data-theme="dark"] .werkbon-customer-total,
-body[data-theme="dark"] .werkbon-customer-head,
-body[data-theme="dark"] .werkbon-customer-row,
-body[data-theme="dark"] .werkbon-customer-summary,
-body[data-theme="dark"] .werkbon-customer-total {
-    border-color: rgba(255, 255, 255, 0.1);
-}
-
-:root[data-theme="dark"] .werkbon-customer-head,
-:root[data-theme="dark"] .werkbon-customer-summary > div,
-:root[data-theme="dark"] .werkbon-customer-labour p,
-body[data-theme="dark"] .werkbon-customer-head,
-body[data-theme="dark"] .werkbon-customer-summary > div,
-body[data-theme="dark"] .werkbon-customer-labour p {
-    color: rgba(255, 255, 255, 0.62);
-}
-
-:root[data-theme="dark"] .werkbon-customer-row-edit > .werkbon-customer-product-cell input,
-:root[data-theme="dark"] .werkbon-customer-row-edit > input[data-detail-part-qty],
-:root[data-theme="dark"] .werkbon-customer-labour-edit > label > input,
-body[data-theme="dark"] .werkbon-customer-row-edit > .werkbon-customer-product-cell input,
-body[data-theme="dark"] .werkbon-customer-row-edit > input[data-detail-part-qty],
-body[data-theme="dark"] .werkbon-customer-labour-edit > label > input {
-    background: #111417;
-    border-color: rgba(255, 255, 255, 0.12);
-    color: #f3f4f6;
-}
-
-:root[data-theme="dark"] .werkbon-input-affix,
-body[data-theme="dark"] .werkbon-input-affix {
-    background: #111417;
-    border-color: rgba(255, 255, 255, 0.12);
-}
-
-:root[data-theme="dark"] .werkbon-input-affix > span,
-body[data-theme="dark"] .werkbon-input-affix > span {
-    color: rgba(255, 255, 255, 0.62);
-}
-
-:root[data-theme="dark"] .werkbon-input-affix input,
-body[data-theme="dark"] .werkbon-input-affix input {
-    color: #f3f4f6;
-}
-
-:root[data-theme="dark"] .werkbon-customer-labour-edit label span,
-body[data-theme="dark"] .werkbon-customer-labour-edit label span {
-    color: rgba(255, 255, 255, 0.62);
-}
-
-:root[data-theme="dark"] .werkbon-customer-product-cell strong,
-:root[data-theme="dark"] .werkbon-customer-labour h4,
-:root[data-theme="dark"] .werkbon-customer-labour p strong,
-:root[data-theme="dark"] .werkbon-customer-summary > div strong,
-:root[data-theme="dark"] .werkbon-customer-total span,
-body[data-theme="dark"] .werkbon-customer-product-cell strong,
-body[data-theme="dark"] .werkbon-customer-labour h4,
-body[data-theme="dark"] .werkbon-customer-labour p strong,
-body[data-theme="dark"] .werkbon-customer-summary > div strong,
-body[data-theme="dark"] .werkbon-customer-total span {
-    color: #f3f4f6;
-}
-
-:root[data-theme="dark"] .werkbon-customer-total strong,
-body[data-theme="dark"] .werkbon-customer-total strong {
-    color: #60a5fa;
-}
-
-:root[data-theme="dark"] .werkbon-add-part-button,
-body[data-theme="dark"] .werkbon-add-part-button {
-    background: #3b82f6;
-    border-color: #3b82f6;
-    color: #ffffff;
-}
-
-:root[data-theme="dark"] .werkbon-add-part-button:hover,
-body[data-theme="dark"] .werkbon-add-part-button:hover {
-    background: #2563eb;
-    border-color: #2563eb;
-}
-.werkbon-detail-contact-grid {
-    margin-top: 0.55rem;
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 0.55rem;
-}
-
-.werkbon-detail-contact-grid > div {
-    display: grid;
-    gap: 0.26rem;
-}
-
-.werkbon-field-locked {
-    min-height: 36px;
-    border-radius: 8px;
-    border: 1px solid var(--e6e6e6);
-    background: #f3f4f6;
-    color: #6b7280;
-    padding: 0.5rem 0.62rem;
-    font-size: 0.88rem;
-    display: inline-flex;
-    align-items: center;
-}
-
-.werkbon-field-editable {
-    border: 1px solid var(--e6e6e6);
-    border-radius: 8px;
-    background: #ffffff;
-    color: var(--151618);
-    padding: 0.5rem 0.62rem;
-    font: inherit;
-}
-
-.werkbon-detail-contact-grid select.werkbon-field-editable,
-.werkbon-detail-contact-grid input.werkbon-field-editable {
-    min-height: 36px;
-    width: 100%;
-}
-
-.werkbon-delete-button {
-    color: #dc2626;
-    border-color: rgba(220, 38, 38, 0.28);
-    background: #ffffff;
-    font-size: 1.1rem;
-    line-height: 1;
-}
-
-.werkbon-delete-button:hover {
-    background: #fee2e2;
-}
-
-.werkbon-customer-description {
-    margin-top: 0.9rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--e6e6e6);
-    display: grid;
-    gap: 0.6rem;
-}
-
-.werkbon-customer-description h4 {
-    margin: 0;
-    font-size: 1rem;
-}
-
-.werkbon-description-field {
-    display: grid;
-    gap: 0.32rem;
-}
-
-.werkbon-description-field span {
-    font-size: 0.78rem;
-    color: var(--666666);
-    font-weight: 600;
-}
-
-.werkbon-description-field textarea.werkbon-field-editable {
-    width: 100%;
-    resize: vertical;
-    min-height: 86px;
-}
-
-.werkbon-description-text {
-    margin: 0;
-    color: var(--666666);
-}
-
-.werkbon-btw-toggle-row {
-    margin-bottom: 0.25rem;
-}
-
-.werkbon-btw-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    cursor: pointer;
-}
-
-.werkbon-btw-toggle input {
-    width: 16px;
-    height: 16px;
-}
-
-.werkbon-save-bar {
-    position: fixed;
-    left: 50%;
-    bottom: 1rem;
-    transform: translateX(-50%) translateY(130%);
-    width: min(760px, calc(100vw - 1.5rem));
-    border-radius: 14px;
-    border: 1px solid rgba(148, 163, 184, 0.32);
-    background: rgba(255, 255, 255, 0.78);
-    backdrop-filter: blur(10px);
-    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.15);
-    padding: 0.75rem 0.9rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.8rem;
-    transition: transform 180ms ease;
-    z-index: 80;
-}
-
-.werkbon-save-bar.is-visible {
-    transform: translateX(-50%) translateY(0);
-}
-
-.werkbon-save-bar p {
-    margin: 0;
-    font-size: 0.9rem;
-    color: #374151;
-    font-weight: 600;
-}
-
-.werkbon-save-bar > div {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-}
-
-.werkbon-toast-stack {
-    position: fixed;
-    top: 1rem;
-    right: 1rem;
-    z-index: 90;
-    display: grid;
-    gap: 0.5rem;
-}
-
-.werkbon-toast {
-    border-radius: 12px;
-    padding: 0.7rem 0.9rem;
-    font-size: 0.86rem;
-    font-weight: 600;
-    color: #0f172a;
-    border: 1px solid transparent;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
-}
-
-.werkbon-toast-success {
-    background: #dcfce7;
-    border-color: #86efac;
-    color: #166534;
-}
-
-.werkbon-toast-error {
-    background: #fee2e2;
-    border-color: #fca5a5;
-    color: #b91c1c;
-}
-
-.werkbon-toast-neutral {
-    background: #e5e7eb;
-    border-color: #d1d5db;
-    color: #374151;
-}
-
-@media (max-width: 1100px) {
-    .werkbon-detail-contact-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
-@media (max-width: 760px) {
-    .werkbon-detail-contact-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .werkbon-save-bar {
-        width: calc(100vw - 1rem);
-        bottom: 0.65rem;
+        gap: 0.65rem;
+        border: 1px solid var(--e6e6e6);
         border-radius: 12px;
-        flex-direction: column;
-        align-items: stretch;
+        padding: 0.75rem;
+        background: #ffffff;
     }
 
-    .werkbon-save-bar > div {
+    .werkbon-part-cell-total {
+        display: flex;
+        justify-content: flex-start;
+    }
+
+    .werkbon-part-cell-remove {
+        display: flex;
         justify-content: flex-end;
     }
 
-    .werkbon-save-bar > div .button {
-        flex: 1 1 auto;
+    .werkbon-create-actions-left {
+        width: 100%;
     }
-}
 
-:root[data-theme="dark"] .werkbon-field-locked,
-body[data-theme="dark"] .werkbon-field-locked {
-    background: #111417;
-    border-color: rgba(255, 255, 255, 0.12);
-    color: rgba(255, 255, 255, 0.56);
-}
+    .werkbon-create-actions-right {
+        width: 100%;
+    }
 
-:root[data-theme="dark"] .werkbon-field-editable,
-body[data-theme="dark"] .werkbon-field-editable {
-    background: #111417;
-    border-color: rgba(255, 255, 255, 0.12);
-    color: #f3f4f6;
-}
-
-:root[data-theme="dark"] .werkbon-customer-description,
-body[data-theme="dark"] .werkbon-customer-description {
-    border-color: rgba(255, 255, 255, 0.1);
-}
-
-:root[data-theme="dark"] .werkbon-description-text,
-:root[data-theme="dark"] .werkbon-description-field span,
-body[data-theme="dark"] .werkbon-description-text,
-body[data-theme="dark"] .werkbon-description-field span {
-    color: rgba(255, 255, 255, 0.62);
-}
-
-:root[data-theme="dark"] .werkbon-delete-button,
-body[data-theme="dark"] .werkbon-delete-button {
-    background: #111417;
-    border-color: rgba(248, 113, 113, 0.42);
-    color: #fca5a5;
-}
-
-:root[data-theme="dark"] .werkbon-save-bar,
-body[data-theme="dark"] .werkbon-save-bar {
-    background: rgba(17, 20, 23, 0.78);
-    border-color: rgba(255, 255, 255, 0.15);
-}
-
-:root[data-theme="dark"] .werkbon-save-bar p,
-body[data-theme="dark"] .werkbon-save-bar p {
-    color: #e5e7eb;
-}
-
-:root[data-theme="dark"] .werkbon-toast-neutral,
-body[data-theme="dark"] .werkbon-toast-neutral {
-    background: #1f2937;
-    border-color: #374151;
-    color: #e5e7eb;
+    .werkbon-create-actions .button {
+        flex: 1 1 calc(50% - 0.5rem);
+    }
 }
 
 /* ================================================================
@@ -1980,7 +1782,7 @@ body[data-theme="dark"] .werkbon-toast-neutral {
     margin-bottom: 0.15rem;
 }
 
-.werkbon-parts-hd > span:nth-child(n+2) {
+.werkbon-parts-hd>span:nth-child(n+2) {
     text-align: center;
 }
 
@@ -2005,13 +1807,13 @@ body[data-theme="dark"] .werkbon-toast-neutral {
 }
 
 .werkbon-part-row span:nth-child(n+2),
-.werkbon-part-row > strong {
+.werkbon-part-row>strong {
     text-align: center;
     font-size: 0.9rem;
     color: var(--333333);
 }
 
-.werkbon-part-row > strong {
+.werkbon-part-row>strong {
     font-weight: 700;
 }
 
@@ -2172,7 +1974,7 @@ body[data-theme="dark"] .werkbon-toast-neutral {
     flex-shrink: 0;
 }
 
-.werkbon-toggle-checkbox:checked + .werkbon-toggle-track {
+.werkbon-toggle-checkbox:checked+.werkbon-toggle-track {
     background: #2563eb;
 }
 
@@ -2188,7 +1990,7 @@ body[data-theme="dark"] .werkbon-toast-neutral {
     transition: transform 160ms ease;
 }
 
-.werkbon-toggle-checkbox:checked + .werkbon-toggle-track .werkbon-toggle-thumb {
+.werkbon-toggle-checkbox:checked+.werkbon-toggle-track .werkbon-toggle-thumb {
     transform: translateX(16px);
 }
 
@@ -2403,11 +2205,11 @@ body[data-theme="dark"] .werkbon-part-row {
 
 :root[data-theme="dark"] .werkbon-part-name,
 :root[data-theme="dark"] .werkbon-part-row span,
-:root[data-theme="dark"] .werkbon-part-row > strong,
+:root[data-theme="dark"] .werkbon-part-row>strong,
 :root[data-theme="dark"] .werkbon-part-total-edit,
 body[data-theme="dark"] .werkbon-part-name,
 body[data-theme="dark"] .werkbon-part-row span,
-body[data-theme="dark"] .werkbon-part-row > strong,
+body[data-theme="dark"] .werkbon-part-row>strong,
 body[data-theme="dark"] .werkbon-part-total-edit {
     color: #e5e7eb;
 }
@@ -2526,8 +2328,8 @@ body[data-theme="dark"] .werkbon-input-affix {
     border-color: rgba(255, 255, 255, 0.12);
 }
 
-:root[data-theme="dark"] .werkbon-input-affix > span,
-body[data-theme="dark"] .werkbon-input-affix > span {
+:root[data-theme="dark"] .werkbon-input-affix>span,
+body[data-theme="dark"] .werkbon-input-affix>span {
     color: rgba(255, 255, 255, 0.52);
 }
 

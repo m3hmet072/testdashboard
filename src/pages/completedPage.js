@@ -24,6 +24,7 @@ const SERVICE_LABEL_BY_KEY = {
   other: "Other",
 };
 
+
 const SERVICE_KEY_ALIASES = new Map([
   ["apk", "apk"],
   ["banden", "banden"],
@@ -153,11 +154,23 @@ function extractContactName(message) {
 }
 
 function customerName(booking, index) {
+  // Try direct fields first
+  if (booking.name && String(booking.name).trim()) {
+    return String(booking.name).trim();
+  }
+  if (booking.customerName && String(booking.customerName).trim()) {
+    return String(booking.customerName).trim();
+  }
+  // Try extracting from message
   const fromPayload = extractContactName(booking.message);
   if (fromPayload) {
     return fromPayload;
   }
-
+  // Try email field (before fallback)
+  if (booking.email && String(booking.email).includes("@")) {
+    return String(booking.email).split("@")[0];
+  }
+  // Fallback
   return FALLBACK_NAMES[index % FALLBACK_NAMES.length];
 }
 
@@ -209,8 +222,19 @@ function completedRowsMarkup(bookings, expandedBookingId, vehicleCache) {
         : vehicleData.title;
       const phone = escapeHtml(customerPhone(booking));
       const message = escapeHtml(customerMessage(booking));
-      const werkbonButtonText = booking.werkbonCreated ? "View Werkbon" : "Create Werkbon";
-      const werkbonButtonClass = booking.werkbonCreated ? "button secondary" : "button";
+      // Button icon and class logic
+      let werkbonButtonIcon, werkbonButtonText, werkbonButtonClass;
+      if (booking.werkbonCreated) {
+        // Eye icon for view
+        werkbonButtonIcon = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 3C4.5 3 2 8 2 8s2.5 5 6 5 6-5 6-5-2.5-5-6-5zm0 8.2A3.2 3.2 0 1 1 8 4.8a3.2 3.2 0 0 1 0 6.4zm0-5.2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" fill="currentColor"/></svg>`;
+        werkbonButtonText = "View Werkbon";
+        werkbonButtonClass = "button view-werkbon";
+      } else {
+        // Plus icon for create
+        werkbonButtonIcon = `<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M8 1.33203V14.668\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"></path><path d=\"M1.33203 8H14.668\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"></path></svg>`;
+        werkbonButtonText = "Create Werkbon";
+        werkbonButtonClass = "button";
+      }
 
       return `
         <article class="request-card completed-card ${isExpanded ? "is-expanded" : ""}" data-booking-card-id="${escapeHtml(bookingId)}">
@@ -270,7 +294,7 @@ function completedRowsMarkup(bookings, expandedBookingId, vehicleCache) {
               </div>
 
               <div class="request-actions">
-                <button class="${werkbonButtonClass}" type="button" data-completed-action="create-werkbon" data-booking-id="${escapeHtml(bookingId)}" data-completed-appointment-id="${completedAppointmentId}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 1.33203V14.668" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M1.33203 8H14.668" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                <button class="${werkbonButtonClass}" type="button" data-completed-action="create-werkbon" data-booking-id="${escapeHtml(bookingId)}" data-completed-appointment-id="${completedAppointmentId}">${werkbonButtonIcon}
 ${werkbonButtonText}</button>
                 <button class="button danger" type="button" data-completed-action="delete" data-booking-id="${escapeHtml(bookingId)}" data-completed-appointment-id="${completedAppointmentId}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M13 3.66797L12.5869 10.3514C12.4813 12.0589 12.4285 12.9127 12.0005 13.5266C11.7889 13.83 11.5165 14.0862 11.2005 14.2786C10.5614 14.668 9.706 14.668 7.99513 14.668C6.28208 14.668 5.42553 14.668 4.78603 14.2779C4.46987 14.0851 4.19733 13.8285 3.98579 13.5245C3.55792 12.9097 3.5063 12.0547 3.40307 10.3448L3 3.66797" stroke="white" stroke-linecap="round"/>

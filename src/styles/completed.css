@@ -1,3 +1,15 @@
+/* View Werkbon button style */
+.view-werkbon {
+  background: #e3f2fd;
+  color: #1976d2;
+  border: 1px solid #90caf9;
+}
+
+.view-werkbon:hover {
+  background: #bbdefb;
+  color: #0d47a1;
+  border: 1px solid #64b5f6;
+}
 /* Completed page specific styles */
 /* Primarily uses request-board component and shared styles */
 
