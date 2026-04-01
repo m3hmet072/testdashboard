@@ -621,6 +621,21 @@ function invoiceFromCompletedRow(row) {
   const labour = notes.labour && typeof notes.labour === "object" ? notes.labour : {};
   const parts = Array.isArray(notes.parts) ? notes.parts : [{ name: "Service", quantity: 1, price: 0 }];
 
+  const derivedStatus = (() => {
+    const explicit = String(notes.status ?? "").trim().toLowerCase();
+    if (explicit) {
+      return explicit;
+    }
+
+    const paymentStatus = String(notes.payment_status ?? "").trim().toLowerCase();
+    const hasPaidAt = Boolean(String(notes.paid_at ?? notes.paidAt ?? "").trim());
+    if (paymentStatus === "paid" || hasPaidAt) {
+      return "paid";
+    }
+
+    return "draft";
+  })();
+
   return buildInvoiceRecord({
     id: String(row.id ?? ""),
     completedAppointmentId: String(row.id ?? ""),
@@ -631,7 +646,7 @@ function invoiceFromCompletedRow(row) {
     carModel: String(notes.car_model || notes.carModel || "Voertuig"),
     serviceTypes: serviceTypes.length ? serviceTypes : ["Service"],
     completedAt: String(row.completed_at ?? row.created_at ?? new Date().toISOString()),
-    status: String(notes.status ?? "draft"),
+    status: derivedStatus,
     werkbonCreated: notes.werkbon_created === true,
     parts,
     labour: {
@@ -2053,6 +2068,7 @@ export async function mountWerkbonPage(rootElement) {
           factuurnummer: payload.factuurnummer || "",
           customerName: payload.customer_name || "Klant",
           paymentDays,
+          completedAppointmentId: payload.invoice?.completedAppointmentId || payload.invoice?.id || "",
         },
         (warning) => showToast(warning, "error"),
         supabase,

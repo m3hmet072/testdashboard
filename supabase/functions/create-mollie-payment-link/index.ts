@@ -162,7 +162,11 @@ serve(async (req) => {
     },
     description,
     redirectUrl,
-    metadata: body.metadata ?? {},
+    webhookUrl: `${supabaseUrl}/functions/v1/mollie-webhook?garageId=${encodeURIComponent(garageId)}`,
+    metadata: {
+      ...(body.metadata ?? {}),
+      garageId,
+    },
   };
 
   const response = await fetch("https://api.mollie.com/v2/payments", {

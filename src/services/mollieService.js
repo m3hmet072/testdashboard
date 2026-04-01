@@ -3,11 +3,31 @@
  * Used to generate per-werkbon payment links for WhatsApp messages.
  */
 
+function resolveMollieRedirectUrl() {
+  const fromEnv = String(import.meta.env.VITE_MOLLIE_REDIRECT_URL ?? "").trim();
+  if (fromEnv) {
+    return fromEnv;
+  }
+
+  if (typeof window !== "undefined") {
+    const origin = String(window.location.origin || "").trim();
+    const isLocalhost = /localhost|127\.0\.0\.1/i.test(origin);
+    if (origin && !isLocalhost) {
+      return origin;
+    }
+  }
+
+  return "https://mollie.com";
+}
+
 /**
  * Calls the Supabase Edge Function that creates a Mollie payment.
  * The Mollie API key lives server-side (function secret), not in frontend code.
  */
-export async function createMollieApiLink(supabaseClient, { totalAmount, factuurnummer, customerName, paymentDays, garageId }) {
+export async function createMollieApiLink(
+  supabaseClient,
+  { totalAmount, factuurnummer, customerName, paymentDays, garageId, completedAppointmentId = "" },
+) {
   if (!supabaseClient) {
     throw new Error("Supabase client ontbreekt voor Mollie API call");
   }
@@ -33,12 +53,14 @@ export async function createMollieApiLink(supabaseClient, { totalAmount, factuur
       currency: "EUR",
       description: `Factuur ${factuurnummer || "-"} - ${customerName || "Klant"}`,
       paymentDays: Math.max(1, Number(paymentDays) || 14),
-      redirectUrl: typeof window !== "undefined" ? window.location.origin : "https://example.com",
+      redirectUrl: resolveMollieRedirectUrl(),
       garageId: String(garageId ?? ""),
       accessToken,
       metadata: {
         invoiceNumber: factuurnummer || "",
         customerName: customerName || "",
+        garageId: String(garageId ?? ""),
+        completedAppointmentId: String(completedAppointmentId ?? ""),
       },
     },
   });
@@ -119,6 +141,7 @@ export async function generatePaymentLink(garageSettings, params, onWarning, sup
           customerName: params.customerName,
           paymentDays: days,
           garageId: String(garageSettings?.id ?? ""),
+          completedAppointmentId: String(params?.completedAppointmentId ?? params?.invoiceId ?? ""),
         },
       );
     } catch (error) {

@@ -316,6 +316,21 @@ function invoiceFromCompletedAppointment(row) {
   const labour = details.labour && typeof details.labour === "object" ? details.labour : {};
   const parts = Array.isArray(details.parts) ? details.parts : [{ name: "Service", quantity: 1, price: 0 }];
 
+  const derivedStatus = (() => {
+    const explicit = String(details.status ?? "").trim().toLowerCase();
+    if (explicit) {
+      return explicit;
+    }
+
+    const paymentStatus = String(details.payment_status ?? "").trim().toLowerCase();
+    const hasPaidAt = Boolean(String(details.paid_at ?? details.paidAt ?? "").trim());
+    if (paymentStatus === "paid" || hasPaidAt) {
+      return "paid";
+    }
+
+    return "draft";
+  })();
+
   return buildInvoiceRecord({
     id: String(row.id ?? ""),
     completedAppointmentId: row.id ? String(row.id) : null,
@@ -330,7 +345,7 @@ function invoiceFromCompletedAppointment(row) {
     completedAt: String(row.completed_at ?? details.completed_at ?? details.completedAt ?? new Date().toISOString()),
     appointmentDate: String(row.appointment_date ?? details.appointment_date ?? details.appointmentDate ?? ""),
     kmStand: normalizeNonNegativeNumber(details.km_stand ?? details.kmStand),
-    status: normalizeStatus(details.status),
+    status: normalizeStatus(derivedStatus),
     vatEnabled: details.vat_enabled !== false && details.vatEnabled !== false,
     description: String(details.description ?? "").trim(),
     internalNote: String(details.internal_note ?? details.internalNote ?? "").trim(),
@@ -1573,6 +1588,7 @@ export async function mountWerkbonDetailPage(rootElement) {
           factuurnummer: invoiceRef.invoiceNumber || invoiceRef.id,
           customerName: invoiceRef.customerName,
           paymentDays,
+          completedAppointmentId: invoiceRef.completedAppointmentId || invoiceRef.id || "",
         },
         (warning) => showToast(warning, "neutral"),
         supabase,
