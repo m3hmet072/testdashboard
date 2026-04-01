@@ -380,6 +380,45 @@
     justify-content: flex-end;
 }
 
+.send-dropdown {
+    position: fixed;
+    background: white;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    z-index: 9999;
+    min-width: 200px;
+    overflow: hidden;
+}
+
+.send-dropdown button {
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    text-align: left;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.send-dropdown button:hover {
+    background: #F8FAFC;
+}
+
+.send-dropdown-muted {
+    color: #94a3b8;
+    font-size: 12px;
+    margin-left: 6px;
+}
+
+.werkbon-row-removing {
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 180ms ease, transform 180ms ease;
+    pointer-events: none;
+}
+
 .werkbon-secondary-actions {
     padding-top: 0;
 }
@@ -2570,4 +2609,182 @@ body[data-theme="dark"] .werkbon-input-affix input {
     .werkbon-sidebar-actions {
         grid-template-columns: 1fr;
     }
+}
+/* Search-inspired detail shell polish */
+.werkbon-detail-topbar {
+    padding: 0.2rem;
+    border: 1px solid var(--e6e6e6);
+    border-radius: 14px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--fafafa) 86%, var(--fff)), var(--fff));
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+}
+
+.werkbon-detail-topbar.is-editing {
+    border-color: color-mix(in srgb, var(--completed) 28%, var(--e6e6e6));
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.82) inset, 0 0 0 4px color-mix(in srgb, var(--completed) 10%, transparent);
+}
+
+.werkbon-detail-back-btn,
+.werkbon-edit-toggle {
+    min-height: 34px;
+    border-radius: 10px;
+}
+
+.werkbon-detail-shell {
+    border-radius: 18px;
+    border: 1px solid color-mix(in srgb, var(--e6e6e6) 88%, transparent);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--fff) 96%, var(--fafafa)), var(--fff));
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 12px 30px rgba(15, 23, 42, 0.06);
+}
+
+.werkbon-detail-shell.is-editing {
+    border-color: color-mix(in srgb, var(--completed) 32%, var(--e6e6e6));
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 14px 36px rgba(15, 23, 42, 0.08), 0 0 0 4px color-mix(in srgb, var(--completed) 9%, transparent);
+}
+
+.werkbon-hdr-card {
+    border: 1px solid color-mix(in srgb, var(--e6e6e6) 92%, transparent);
+    border-radius: 14px;
+    padding: 1rem 1rem 0.9rem;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--fafafa) 88%, var(--fff)), var(--fff));
+}
+
+.werkbon-detail-fields-grid {
+    gap: 0.55rem;
+}
+
+.werkbon-meta-field {
+    border: 1px solid color-mix(in srgb, var(--e6e6e6) 94%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--fafafa) 62%, var(--fff));
+    padding: 0.55rem 0.6rem;
+}
+
+.werkbon-field-editable {
+    min-height: 34px;
+    border-radius: 10px;
+    border-color: color-mix(in srgb, var(--e6e6e6) 90%, transparent);
+    background: color-mix(in srgb, var(--fff) 82%, var(--fafafa));
+}
+
+.werkbon-field-editable:focus {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--completed) 14%, transparent);
+}
+
+.werkbon-detail-section {
+    margin-top: 0.8rem;
+    border: 1px solid color-mix(in srgb, var(--e6e6e6) 94%, transparent);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--fff) 84%, var(--fafafa));
+}
+
+.werkbon-detail-main-col .werkbon-detail-section:first-child {
+    margin-top: 1rem;
+}
+
+.werkbon-summary-sidebar-card,
+.werkbon-actions-sidebar-card {
+    border: 1px solid color-mix(in srgb, var(--e6e6e6) 92%, transparent);
+    border-radius: 14px;
+    padding: 1rem;
+    background: color-mix(in srgb, var(--fff) 88%, var(--fafafa));
+}
+
+.werkbon-actions-sidebar-card {
+    margin-top: 0.8rem;
+}
+
+.werkbon-sidebar-actions {
+    margin-top: 0.45rem;
+}
+
+.werkbon-sidebar-actions .button {
+    border-radius: 10px;
+}
+
+:root[data-theme="dark"] .werkbon-detail-topbar,
+body[data-theme="dark"] .werkbon-detail-topbar,
+:root[data-theme="dark"] .werkbon-detail-shell,
+body[data-theme="dark"] .werkbon-detail-shell,
+:root[data-theme="dark"] .werkbon-hdr-card,
+body[data-theme="dark"] .werkbon-hdr-card,
+:root[data-theme="dark"] .werkbon-meta-field,
+body[data-theme="dark"] .werkbon-meta-field,
+:root[data-theme="dark"] .werkbon-detail-section,
+body[data-theme="dark"] .werkbon-detail-section,
+:root[data-theme="dark"] .werkbon-summary-sidebar-card,
+body[data-theme="dark"] .werkbon-summary-sidebar-card,
+:root[data-theme="dark"] .werkbon-actions-sidebar-card,
+body[data-theme="dark"] .werkbon-actions-sidebar-card {
+    background: #15181b;
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Payment link status badges */
+.werkbon-status-link-sent {
+  background: color-mix(in srgb, #f59e0b 18%, #fff);
+  color: #9a5a00;
+  border: 1px solid color-mix(in srgb, #f59e0b 35%, #e6e6e6);
+}
+
+.werkbon-status-openstaand {
+  background: color-mix(in srgb, #94a3b8 14%, #fff);
+  color: #475569;
+  border: 1px solid color-mix(in srgb, #94a3b8 30%, #e6e6e6);
+}
+
+/* Detail page payment-link status card */
+.werkbon-payment-status-card {
+  margin: 0.45rem 0 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--e6e6e6) 90%, transparent);
+  border-radius: 12px;
+  padding: 0.7rem;
+  background: color-mix(in srgb, var(--fff) 88%, var(--fafafa));
+}
+
+.werkbon-payment-status-title {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.werkbon-payment-status-subtitle {
+  margin: 0.22rem 0 0.55rem;
+  color: var(--666666);
+  font-size: 0.8rem;
+}
+
+.werkbon-payment-status-actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.werkbon-payment-status-actions .button {
+  min-height: 32px;
+  border-radius: 9px;
+}
+
+.werkbon-payment-status-paid {
+  margin: 0.4rem 0 0.75rem;
+}
+
+:root[data-theme="dark"] .werkbon-payment-status-card,
+body[data-theme="dark"] .werkbon-payment-status-card {
+  background: #15181b;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="dark"] .werkbon-status-link-sent,
+body[data-theme="dark"] .werkbon-status-link-sent {
+  background: rgba(245, 158, 11, 0.18);
+  color: #f6c867;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+:root[data-theme="dark"] .werkbon-status-openstaand,
+body[data-theme="dark"] .werkbon-status-openstaand {
+  background: rgba(148, 163, 184, 0.2);
+  color: #d1d9e6;
+  border-color: rgba(148, 163, 184, 0.3);
 }

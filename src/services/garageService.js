@@ -8,6 +8,10 @@ function normalizeGarage(garage) {
     analyticsPropertyId: garage.analytics_property_id ?? null,
     logoUrl: garage.logo_url ?? "",
     userId: garage.user_id ?? "",
+    paymentLink: garage.payment_link ?? null,
+    mollieMethod: String(garage.mollie_method ?? "none"),
+    paymentDays: typeof garage.payment_days === "number" ? garage.payment_days : (parseInt(String(garage.payment_days ?? "14"), 10) || 14),
+    garageName: String(garage.garage_name || garage.name || "Garage"),
   };
 }
 

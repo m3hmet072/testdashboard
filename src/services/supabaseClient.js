@@ -108,21 +108,42 @@ export async function fetchBookings() {
 export async function fetchGaragesByUser({ userId, includeAll = false }) {
   assertSupabaseConfigured();
 
-  let query = supabase
-    .from("garages")
-    .select("id, name, domain, analytics_property_id, logo_url, user_id")
-    .order("name", { ascending: true });
+  const buildQuery = (selectColumns) => {
+    let query = supabase
+      .from("garages")
+      .select(selectColumns)
+      .order("name", { ascending: true });
 
-  if (!includeAll) {
-    query = query.eq("user_id", userId);
+    if (!includeAll) {
+      query = query.eq("user_id", userId);
+    }
+
+    return query;
+  };
+
+  const primaryResult = await buildQuery(
+    "id, name, domain, analytics_property_id, logo_url, user_id, payment_link, mollie_method, payment_days",
+  );
+
+  if (!primaryResult.error) {
+    return primaryResult.data ?? [];
   }
 
-  const { data, error } = await query;
-  if (error) {
-    throw error;
+  // Older databases may not have payment columns yet.
+  const isMissingColumn =
+    String(primaryResult.error?.code ?? "") === "42703" ||
+    /column\s+garages\./i.test(String(primaryResult.error?.message ?? ""));
+
+  if (!isMissingColumn) {
+    throw primaryResult.error;
   }
 
-  return data ?? [];
+  const fallbackResult = await buildQuery("id, name, domain, analytics_property_id, logo_url, user_id");
+  if (fallbackResult.error) {
+    throw fallbackResult.error;
+  }
+
+  return fallbackResult.data ?? [];
 }
 
 export async function fetchBookingsByGarageIds({ garageIds = null }) {

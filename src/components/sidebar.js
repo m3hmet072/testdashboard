@@ -25,6 +25,7 @@ const NAV_LINKS = [
   },
   { key: "emails", href: pageUrl("emails.html"), label: "E-mails", icon: "emails", showUnreadBadge: true },
   { key: "analytics", href: pageUrl("analytics.html"), label: "Analytics", icon: "analytics" },
+    { key: "settings", href: pageUrl("settings.html"), label: "Instellingen", icon: "settings" },
 ];
 
 const SIDEBAR_ICON_SRC = {
@@ -37,6 +38,7 @@ const SIDEBAR_ICON_SRC = {
   emails: assetUrl("sidebar-icons/email.png"),
   analytics: assetUrl("sidebar-icons/analytics.png"),
   default: assetUrl("sidebar-icons/default.png"),
+    settings: assetUrl("sidebar-icons/default.png"),
 };
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "garage-dashboard.sidebar-collapsed";

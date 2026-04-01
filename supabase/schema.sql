@@ -9,8 +9,16 @@ create table if not exists public.garages (
   domain text,
   analytics_property_id text,
   logo_url text,
+  -- Mollie, iDEAL or any payment link sent to customers via WhatsApp / e-mail
+  payment_link text,
   -- Link each garage to one Supabase auth user (tenant owner)
-  user_id uuid not null references auth.users (id) on delete cascade,
+    -- Mollie payment configuration
+    mollie_method text not null default 'none',   -- 'none' | 'manual' | 'api'
+    mollie_api_key text,
+    payment_days int not null default 14,
+    garage_name text,
+    -- Link each garage to one Supabase auth user (tenant owner)
+    user_id uuid not null references auth.users (id) on delete cascade,
   created_at timestamptz not null default now()
 );
 
@@ -95,3 +103,16 @@ create index if not exists bookings_garage_id_created_at_idx
 -- 2) Insert garage row with user_id = auth.users.id and analytics_property_id.
 -- 3) Set logo_url for brand customization.
 -- 4) Share dashboard login credentials with client.
+
+-- ----------------------------------------------------------
+-- Mollie payment migration (run in Supabase SQL editor)
+-- ----------------------------------------------------------
+-- alter table public.garages add column if not exists mollie_method text not null default 'none';
+-- alter table public.garages add column if not exists mollie_api_key text;
+-- alter table public.garages add column if not exists payment_days int not null default 14;
+-- alter table public.garages add column if not exists garage_name text;
+-- alter table public.garages add column if not exists payment_link text;
+-- Werkbon payment fields live inside completed_appointments.completion_notes (JSON):
+--   payment_link          text
+--   payment_link_sent_at  timestamptz
+--   payment_method        text   ('mollie' | 'ideal' | 'cash')

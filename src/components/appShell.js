@@ -13,6 +13,7 @@ const PREFETCH_DOCUMENTS = [
   "/add-appointment.html",
   "/emails.html",
   "/analytics.html",
+  "/settings.html",
 ];
 
 function warmNavigationDocuments() {

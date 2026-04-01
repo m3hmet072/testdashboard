@@ -17,6 +17,7 @@ export default defineConfig({
         addAppointment: resolve(__dirname, "add-appointment.html"),
         emails: resolve(__dirname, "emails.html"),
         analytics: resolve(__dirname, "analytics.html"),
+        settings: resolve(__dirname, "settings.html"),
       },
     },
   },

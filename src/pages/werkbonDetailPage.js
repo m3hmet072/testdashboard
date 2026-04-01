@@ -5,6 +5,7 @@ import { getBookings } from "../services/bookingService.js";
 import { ensureAuthenticated, logoutAndRedirect } from "../utils/auth.js";
 import { applyGarageBranding } from "../utils/branding.js";
 import { pageUrl } from "../utils/paths.js";
+import { generatePaymentLink } from "../services/mollieService.js";
 
 const STATUS_META = {
   draft: { label: "Draft", className: "werkbon-status-draft" },
@@ -89,6 +90,14 @@ const MOCK_INVOICE_BLUEPRINTS = [
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+
+function formatWhatsappPhone(rawPhone) {
+  const digits = String(rawPhone ?? "").replace(/\D+/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("00")) return digits.slice(2);
+  if (digits.startsWith("0")) return `31${digits.slice(1)}`;
+  return digits;
+}
 
 function escapeHtml(value) {
   return String(value)
@@ -225,6 +234,9 @@ function buildInvoiceRecord(blueprint) {
     parts: computed.parts,
     labour: computed.labour,
     summary: computed.summary,
+    paymentLink: String(blueprint.paymentLink ?? ""),
+    paymentLinkSentAt: String(blueprint.paymentLinkSentAt ?? ""),
+    paymentMethod: String(blueprint.paymentMethod ?? ""),
   };
 }
 
@@ -328,6 +340,9 @@ function invoiceFromCompletedAppointment(row) {
       hours: normalizeNonNegativeNumber(labour.hours),
       rate: normalizeNonNegativeNumber(labour.rate),
     },
+    paymentLink: String(details.payment_link ?? ""),
+    paymentLinkSentAt: String(details.payment_link_sent_at ?? ""),
+    paymentMethod: String(details.payment_method ?? ""),
   });
 }
 
@@ -365,6 +380,29 @@ function isSupabaseRlsError(error) {
 function statusBadgeMarkup(status) {
   const meta = STATUS_META[normalizeStatus(status)] ?? STATUS_META.draft;
   return `<span class="status-chip ${escapeHtml(meta.className)}">${escapeHtml(meta.label)}</span>`;
+}
+
+function paymentLinkStatusMarkup(invoice) {
+  if (invoice.status === "paid") {
+    return '<div class="werkbon-payment-status-paid"><span class="status-chip werkbon-status-paid">Betaald</span></div>';
+  }
+
+  if (!invoice.paymentLink) {
+    return "";
+  }
+
+  const sentLabel = invoice.paymentLinkSentAt ? formatDate(invoice.paymentLinkSentAt) : "onbekend";
+  const viaLabel = "Via Mollie";
+  return `
+    <div class="werkbon-payment-status-card">
+      <p class="werkbon-payment-status-title">Betaallink verstuurd</p>
+      <p class="werkbon-payment-status-subtitle">${escapeHtml(viaLabel)} · ${escapeHtml(sentLabel)}</p>
+      <div class="werkbon-payment-status-actions">
+        <button class="button subtle" type="button" data-detail-action="copy-payment-link">Kopieer link</button>
+        <button class="button subtle" type="button" data-detail-action="resend-payment-link">Opnieuw sturen</button>
+      </div>
+    </div>
+  `;
 }
 
 function createEditDraft(invoice) {
@@ -575,7 +613,7 @@ function detailPageMarkup({ invoice, isEditing, draft, hasChanges }) {
   return `
     <div class="werkbon-detail-page">
 
-      <div class="werkbon-detail-topbar">
+      <div class="werkbon-detail-topbar${isEditing ? " is-editing" : ""}">
         <a href="${pageUrl("werkbon.html")}" class="button subtle werkbon-detail-back-btn">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <path d="M12.5 5L7.5 10L12.5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -590,7 +628,7 @@ function detailPageMarkup({ invoice, isEditing, draft, hasChanges }) {
         </button>
       </div>
 
-      <section class="werkbon-detail-shell">
+      <section class="werkbon-detail-shell${isEditing ? " is-editing" : ""}">
       <header class="werkbon-hdr-card">
         <div class="werkbon-hdr-primary">
           <div class="werkbon-hdr-meta-row">
@@ -621,7 +659,7 @@ function detailPageMarkup({ invoice, isEditing, draft, hasChanges }) {
             <span class="werkbon-meta-label">Afspraakdatum</span>
             ${dateField}
           </div>
-          <div class="werkbon-meta-field">
+          <div class="werkbon-meta-field werkbon-meta-field-status">
             <span class="werkbon-meta-label">Status</span>
             ${statusField}
           </div>
@@ -679,6 +717,7 @@ function detailPageMarkup({ invoice, isEditing, draft, hasChanges }) {
 
           <div class="werkbon-actions-sidebar-card">
             <p class="kicker werkbon-section-kicker">Acties</p>
+            ${paymentLinkStatusMarkup(viewModel)}
             <div class="werkbon-sidebar-actions">
               <button class="button werkbon-action-primary" type="button" data-detail-action="download-pdf">
                 <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6 9l4 4 4-4M10 3v10M4 16h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -744,6 +783,9 @@ function saveInvoiceToLocalOverrides(invoice) {
     internalNote: invoice.internalNote,
     paidAt: invoice.paidAt,
     invoiceNumber: invoice.invoiceNumber,
+    paymentLink: invoice.paymentLink,
+    paymentLinkSentAt: invoice.paymentLinkSentAt,
+    paymentMethod: invoice.paymentMethod,
     parts: invoice.parts.map((part) => ({ name: part.name, quantity: part.quantity, price: part.price })),
     labour: { hours: invoice.labour.hours, rate: invoice.labour.rate },
   };
@@ -1042,6 +1084,9 @@ async function upsertCompletedAppointment(invoice, authState) {
     },
     totals: invoice.summary,
     updated_at: new Date().toISOString(),
+    payment_link: invoice.paymentLink || null,
+    payment_link_sent_at: invoice.paymentLinkSentAt || null,
+    payment_method: invoice.paymentMethod || null,
   };
 
   if (invoice.completedAppointmentId) {
@@ -1072,6 +1117,9 @@ async function upsertCompletedAppointment(invoice, authState) {
     const mergedNotes = {
       ...detailsPayload,
       werkbon_created: existingNotes.werkbon_created ?? false,
+      payment_link: detailsPayload.payment_link || existingNotes.payment_link || null,
+      payment_link_sent_at: detailsPayload.payment_link_sent_at || existingNotes.payment_link_sent_at || null,
+      payment_method: detailsPayload.payment_method || existingNotes.payment_method || null,
     };
 
     const { data, error } = await supabase
@@ -1137,6 +1185,9 @@ async function upsertCompletedAppointment(invoice, authState) {
       const mergedNotes = {
         ...detailsPayload,
         werkbon_created: existingNotes.werkbon_created ?? false,
+        payment_link: detailsPayload.payment_link || existingNotes.payment_link || null,
+        payment_link_sent_at: detailsPayload.payment_link_sent_at || existingNotes.payment_link_sent_at || null,
+        payment_method: detailsPayload.payment_method || existingNotes.payment_method || null,
       };
 
       const { error: updateError } = await supabase
@@ -1508,6 +1559,49 @@ export async function mountWerkbonDetailPage(rootElement) {
     return invoice;
   };
 
+  const getInvoiceWhatsappPayload = async (invoiceRef) => {
+    const garage = authState.activeGarage;
+    const paymentDays = Math.max(1, parseInt(String(garage?.paymentDays ?? 14), 10) || 14);
+    const garageName = String(garage?.garageName || garage?.name || "Uw garage");
+
+    let paymentLink = invoiceRef.paymentLink || "";
+    if (!paymentLink) {
+      paymentLink = await generatePaymentLink(
+        garage,
+        {
+          totalAmount: invoiceRef.summary.total,
+          factuurnummer: invoiceRef.invoiceNumber || invoiceRef.id,
+          customerName: invoiceRef.customerName,
+          paymentDays,
+        },
+        (warning) => showToast(warning, "neutral"),
+        supabase,
+      ) || "";
+    }
+
+    const lines = [
+      `Beste ${invoiceRef.customerName || "klant"},`,
+      "",
+      `Hierbij uw factuur van ${garageName}.`,
+      "",
+      `Factuurnummer: ${invoiceRef.invoiceNumber || invoiceRef.id || "-"}`,
+      `Totaalbedrag: €${normalizeNonNegativeNumber(invoiceRef.summary.total).toFixed(2).replace(".", ",")}`,
+      `Betaaltermijn: ${paymentDays} dagen`,
+    ];
+
+    if (paymentLink) {
+      lines.push("", "Betaal eenvoudig via Mollie:", paymentLink);
+    }
+
+    lines.push("", "Met vriendelijke groet,", garageName);
+
+    return {
+      message: lines.join("\n"),
+      paymentLink,
+      paymentDays,
+    };
+  };
+
   const generatePdfAndDownload = async () => {
     const invoiceWithNumber = await ensureInvoiceNumber();
     const garageProfile = await getGarageProfile(authState.activeGarage?.id);
@@ -1636,22 +1730,84 @@ export async function mountWerkbonDetailPage(rootElement) {
     }
 
     if (action === "send-whatsapp") {
-      const message = `Beste ${invoice.customerName}, uw factuur van ${formatCurrency(invoice.summary.total)} staat klaar. Neem contact op voor vragen.`;
-      const phone = String(invoice.customerPhone || "").replace(/[^0-9]/g, "");
-      const whatsappUrl = `https://wa.me/${encodeURIComponent(phone)}?text=${encodeURIComponent(message)}`;
-      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
-
-      if (invoice.status !== "paid") {
-        try {
-          invoice = applyInvoicePatch(invoice, { status: "sent" });
-          await persistInvoice(invoice, authState);
-          render();
-        } catch (error) {
-          console.error(error);
-        }
+      const phone = formatWhatsappPhone(invoice.customerPhone || "");
+      if (!phone) {
+        showToast("Geen telefoonnummer bekend voor deze klant", "error");
+        return;
       }
 
-      showToast("WhatsApp bericht geopend", "success");
+      try {
+        const invoiceWithNumber = await ensureInvoiceNumber();
+        const payload = await getInvoiceWhatsappPayload(invoiceWithNumber);
+        const paymentMode = String(authState.activeGarage?.mollieMethod || "none");
+        if (paymentMode !== "none" && !payload.paymentLink) {
+          showToast("Geen betaallink gemaakt. Controleer Mollie API-sleutel/instellingen en probeer opnieuw.", "error");
+          return;
+        }
+        const whatsappUrl = `https://wa.me/${encodeURIComponent(phone)}?text=${encodeURIComponent(payload.message)}`;
+        window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+
+        if (invoice.status !== "paid") {
+          invoice = applyInvoicePatch(invoice, {
+            status: "sent",
+            paymentLink: payload.paymentLink || invoice.paymentLink,
+            paymentLinkSentAt: payload.paymentLink ? new Date().toISOString() : invoice.paymentLinkSentAt,
+            paymentMethod: payload.paymentLink ? "mollie" : invoice.paymentMethod,
+          });
+          invoice = buildInvoiceRecord(await persistInvoice(invoice, authState));
+          render();
+        }
+
+        showToast("WhatsApp bericht geopend", "success");
+      } catch (error) {
+        showToast("WhatsApp verzenden mislukt", "error");
+        console.error(error);
+      }
+      return;
+    }
+
+    if (action === "copy-payment-link") {
+      if (!invoice.paymentLink) {
+        showToast("Geen betaallink beschikbaar", "neutral");
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(invoice.paymentLink);
+        showToast("Betaallink gekopieerd", "success");
+      } catch {
+        showToast("Kopieren mislukt", "error");
+      }
+      return;
+    }
+
+    if (action === "resend-payment-link") {
+      const phone = formatWhatsappPhone(invoice.customerPhone || "");
+      if (!phone || !invoice.paymentLink) {
+        showToast("Geen betaallink of telefoonnummer beschikbaar", "error");
+        return;
+      }
+
+      const garageName = String(authState.activeGarage?.garageName || authState.activeGarage?.name || "Uw garage");
+      const paymentDays = Math.max(1, parseInt(String(authState.activeGarage?.paymentDays ?? 14), 10) || 14);
+      const message = [
+        `Beste ${invoice.customerName || "klant"},`,
+        "",
+        `Hierbij uw factuur van ${garageName}.`,
+        "",
+        `Factuurnummer: ${invoice.invoiceNumber || invoice.id || "-"}`,
+        `Totaalbedrag: €${normalizeNonNegativeNumber(invoice.summary.total).toFixed(2).replace(".", ",")}`,
+        `Betaaltermijn: ${paymentDays} dagen`,
+        "",
+        "Betaal eenvoudig via Mollie:",
+        invoice.paymentLink,
+        "",
+        "Met vriendelijke groet,",
+        garageName,
+      ].join("\n");
+
+      const whatsappUrl = `https://wa.me/${encodeURIComponent(phone)}?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+      showToast("Betaallink opnieuw verstuurd", "success");
       return;
     }
 

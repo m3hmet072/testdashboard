@@ -1,6 +1,6 @@
 import { createAppShell } from "../components/appShell.js";
 import { createClient } from "@supabase/supabase-js";
-import { deleteBooking, setWerkbonCreatedForCompletedAppointment, getBookings } from "../services/bookingService.js";
+import { getBookings } from "../services/bookingService.js";
 import { fetchCompletedAppointmentsByGarageIds } from "../services/supabaseClient.js";
 import { summarizeEmailInbox } from "../services/emailService.js";
 import { fetchVehicleByLicensePlate, normalizeLicensePlate } from "../services/rdwService.js";
@@ -8,9 +8,14 @@ import { ensureAuthenticated, logoutAndRedirect } from "../utils/auth.js";
 import { applyGarageBranding } from "../utils/branding.js";
 import { showConfirmDialog } from "../utils/confirmDialog.js";
 import { pageUrl } from "../utils/paths.js";
+import { generatePaymentLink } from "../services/mollieService.js";
 
 
 const STATUS_META = {
+  pending: {
+    label: "Openstaand",
+    className: "werkbon-status-openstaand",
+  },
   draft: {
     label: "Draft",
     className: "werkbon-status-draft",
@@ -60,7 +65,7 @@ const SERVICE_KEY_ALIASES = new Map([
 ]);
 
 const WERKBON_CREATE_STEPS = ["Voertuig", "Klant", "Onderdelen", "Arbeid", "Overzicht"];
-const WERKBON_PAYMENT_METHODS = ["contant", "iDEAL", "Tikkie"];
+const WERKBON_PAYMENT_METHODS = ["contant", "iDEAL", "Mollie"];
 const WERKBON_QUICK_PARTS = [
   { label: "APK keuring", name: "APK keuring", price: 45 },
   { label: "Banden", name: "Banden", price: 120 },
@@ -487,6 +492,29 @@ function formatCurrency(value) {
   return `€${roundCurrency(value).toFixed(2)}`;
 }
 
+function formatWhatsappPhone(rawPhone) {
+  const digits = String(rawPhone ?? "").replace(/\D+/g, "");
+  if (!digits) {
+    return "";
+  }
+
+  if (digits.startsWith("00")) {
+    return digits.slice(2);
+  }
+
+  if (digits.startsWith("0")) {
+    return `31${digits.slice(1)}`;
+  }
+
+  return digits;
+}
+
+function formatWhatsappInvoiceTotal(value) {
+  const parsed = Number(value);
+  const safeNumber = Number.isFinite(parsed) ? parsed : 0;
+  return safeNumber.toFixed(2).replace(".", ",");
+}
+
 function parseDate(value) {
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
@@ -579,6 +607,9 @@ function buildInvoiceRecord(blueprint) {
       vat,
       total,
     },
+    paymentLink: String(blueprint.paymentLink ?? ""),
+    paymentLinkSentAt: String(blueprint.paymentLinkSentAt ?? ""),
+    paymentMethod: String(blueprint.paymentMethod ?? ""),
   };
 }
 
@@ -607,6 +638,9 @@ function invoiceFromCompletedRow(row) {
       hours: Number(labour.hours ?? 0),
       rate: Number(labour.rate ?? 0),
     },
+    paymentLink: String(notes.payment_link ?? ""),
+    paymentLinkSentAt: String(notes.payment_link_sent_at ?? ""),
+    paymentMethod: String(notes.payment_method ?? ""),
   });
 }
 
@@ -645,8 +679,15 @@ function prefetchWerkbonDetailDocument() {
   document.head.append(link);
 }
 
-function statusBadgeMarkup(status) {
-  const meta = STATUS_META[normalizeStatus(status)] ?? STATUS_META.draft;
+function statusBadgeMarkup(status, paymentLink = "") {
+  const normalized = normalizeStatus(status);
+  if (normalized !== "paid" && paymentLink) {
+    return `<span class="status-chip werkbon-status-link-sent">Link verstuurd</span>`;
+  }
+  if (normalized === "draft" && !paymentLink) {
+    return `<span class="status-chip werkbon-status-openstaand">Openstaand</span>`;
+  }
+  const meta = STATUS_META[normalized] ?? STATUS_META.draft;
   return `<span class="status-chip ${meta.className}">${meta.label}</span>`;
 }
 
@@ -699,6 +740,10 @@ function summaryCardsMarkup(invoices) {
 }
 
 function invoiceExpandedActionsMarkup(invoice) {
+  const markPaidButton = invoice.status === "paid"
+    ? ""
+    : `<button class="button werkbon-paid-button" type="button" data-werkbon-action="mark-paid" data-werkbon-id="${escapeHtml(invoice.id)}">Mark as Paid</button>`;
+
   return `
     <div class="request-divider"></div>
     <div class="request-expanded werkbon-expanded">
@@ -706,7 +751,7 @@ function invoiceExpandedActionsMarkup(invoice) {
         <button class="button subtle" type="button" data-werkbon-action="view" data-werkbon-id="${escapeHtml(invoice.id)}">View Werkbon</button>
         <button class="button subtle" type="button" data-werkbon-action="edit" data-werkbon-id="${escapeHtml(invoice.id)}">Edit</button>
         <button class="button subtle werkbon-send-button" type="button" data-werkbon-action="send-customer" data-werkbon-id="${escapeHtml(invoice.id)}">Send to Customer</button>
-        <button class="button werkbon-paid-button" type="button" data-werkbon-action="mark-paid" data-werkbon-id="${escapeHtml(invoice.id)}">Mark as Paid</button>
+        ${markPaidButton}
         <button class="button danger" type="button" data-werkbon-action="delete" data-werkbon-id="${escapeHtml(invoice.id)}">Delete</button>
       </div>
     </div>
@@ -717,6 +762,10 @@ function werkbonModalMarkup(invoice, isEditing) {
   if (!invoice) {
     return "";
   }
+
+  const markPaidButton = invoice.status === "paid"
+    ? ""
+    : `<button class="button werkbon-paid-button" type="button" data-werkbon-action="mark-paid" data-werkbon-id="${escapeHtml(invoice.id)}">Mark as Paid</button>`;
 
   return `
     <div class="werkbon-drawer-shell">
@@ -747,7 +796,7 @@ function werkbonModalMarkup(invoice, isEditing) {
             </div>
             <div>
               <span class="werkbon-detail-label">Status</span>
-              ${statusBadgeMarkup(invoice.status)}
+              ${statusBadgeMarkup(invoice.status, invoice.paymentLink)}
             </div>
           </section>
 
@@ -843,7 +892,7 @@ function werkbonModalMarkup(invoice, isEditing) {
                 <button class="button subtle" type="button" data-werkbon-action="download-pdf" data-werkbon-id="${escapeHtml(invoice.id)}">Download PDF</button>
                 <button class="button subtle" type="button" data-werkbon-action="send-sms" data-werkbon-id="${escapeHtml(invoice.id)}">Send via SMS</button>
                 <button class="button subtle" type="button" data-werkbon-action="send-whatsapp" data-werkbon-id="${escapeHtml(invoice.id)}">Send via WhatsApp</button>
-                <button class="button werkbon-paid-button" type="button" data-werkbon-action="mark-paid" data-werkbon-id="${escapeHtml(invoice.id)}">Mark as Paid</button>
+                ${markPaidButton}
               `
     }
         </div>
@@ -868,7 +917,7 @@ function invoiceRowMarkup(invoice, isExpanded) {
         <div class="request-meta werkbon-meta">
           <div class="werkbon-meta-top">
             <strong class="werkbon-price">${escapeHtml(formatCurrency(invoice.summary.total))}</strong>
-          ${statusBadgeMarkup(invoice.status)}
+          ${statusBadgeMarkup(invoice.status, invoice.paymentLink)}
           </div>
           <button
             class="request-toggle ${isExpanded ? "is-expanded" : ""}"
@@ -1146,6 +1195,7 @@ export async function mountWerkbonPage(rootElement) {
         <label class="werkbon-filter-field werkbon-status-field">
           <select id="werkbonStatusFilter" aria-label="Filter werkbon by status">
             <option value="all">All statuses</option>
+            <option value="pending">Openstaand</option>
             <option value="draft">Draft</option>
             <option value="sent">Sent</option>
             <option value="paid">Paid</option>
@@ -1193,6 +1243,15 @@ export async function mountWerkbonPage(rootElement) {
   let createRdwRequestToken = 0;
   let werkbonState = createEmptyWerkbonState();
   let noticeTimer = 0;
+  let activeSendDropdown = null;
+  let activeSendPayload = null;
+  let garageSettings = {
+    ...authState.activeGarage,
+    mollieMethod: String(authState.activeGarage?.mollieMethod ?? "none"),
+    mollieApiKey: authState.activeGarage?.mollieApiKey ?? null,
+    paymentDays: parseInt(String(authState.activeGarage?.paymentDays ?? "14"), 10) || 14,
+    garageName: String(authState.activeGarage?.garageName || authState.activeGarage?.name || "Garage"),
+  };
   const vehicleCache = new Map();
 
   const setNotice = (message) => {
@@ -1210,6 +1269,111 @@ export async function mountWerkbonPage(rootElement) {
       }, 2600);
     }
   };
+
+  const showToast = (message, tone = "success") => {
+    if (tone === "error") {
+      setNotice(String(message || "Er ging iets mis"));
+      return;
+    }
+    setNotice(String(message || "Actie uitgevoerd."));
+  };
+
+  const loadGarageSettings = async () => {
+    const garageId = authState.activeGarage?.id;
+    if (!supabase || !garageId) {
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("garages")
+        .select("*")
+        .eq("id", garageId)
+        .maybeSingle();
+
+      if (error || !data) {
+        return;
+      }
+
+      garageSettings = {
+        ...garageSettings,
+        paymentLink: data.payment_link ?? garageSettings.paymentLink ?? null,
+        mollieMethod: String(data.mollie_method ?? garageSettings.mollieMethod ?? "none"),
+        mollieApiKey: data.mollie_api_key ?? garageSettings.mollieApiKey ?? null,
+        paymentDays: parseInt(String(data.payment_days ?? garageSettings.paymentDays ?? 14), 10) || 14,
+        garageName: String(data.garage_name || data.name || garageSettings.garageName || "Garage"),
+      };
+    } catch {
+      // Keep fallback garage settings from auth context.
+    }
+  };
+
+  const closeSendDropdown = () => {
+    if (activeSendDropdown instanceof HTMLElement) {
+      activeSendDropdown.remove();
+    }
+    activeSendDropdown = null;
+    activeSendPayload = null;
+  };
+
+  const showWerkbonConfirmDialog = ({
+    title,
+    body,
+    confirmLabel,
+    cancelLabel,
+    confirmClassName = "",
+  }) => new Promise((resolve) => {
+    const container = document.createElement("div");
+    container.innerHTML = `
+      <div class="confirm-dialog-overlay" role="presentation">
+        <div class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-desc">
+          <div class="confirm-dialog-content">
+            <h2 class="confirm-dialog-title" id="confirm-title">${escapeHtml(title)}</h2>
+            <p id="confirm-desc">${escapeHtml(body)}</p>
+          </div>
+          <div class="confirm-dialog-actions">
+            <button class="button subtle" type="button" data-confirm-action="cancel">${escapeHtml(cancelLabel)}</button>
+            <button class="button ${escapeHtml(confirmClassName)}" type="button" data-confirm-action="continue">${escapeHtml(confirmLabel)}</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.append(container);
+    const overlay = container.querySelector(".confirm-dialog-overlay");
+    const continueButton = container.querySelector('[data-confirm-action="continue"]');
+    if (continueButton instanceof HTMLButtonElement) {
+      window.setTimeout(() => continueButton.focus(), 50);
+    }
+
+    const finish = (confirmed) => {
+      container.remove();
+      resolve(confirmed);
+    };
+
+    if (overlay instanceof HTMLElement) {
+      overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) {
+          finish(false);
+        }
+      });
+    }
+
+    container.addEventListener("click", (event) => {
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      const actionButton = target?.closest("[data-confirm-action]");
+      if (!(actionButton instanceof HTMLElement)) {
+        return;
+      }
+      finish(actionButton.dataset.confirmAction === "continue");
+    });
+
+    container.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        finish(false);
+      }
+    });
+  });
 
   const resetCreateState = () => {
     if (createRdwAutoFetchTimer) {
@@ -1303,6 +1467,7 @@ export async function mountWerkbonPage(rootElement) {
 
   const closeCreateModal = ({ rerenderPage = false } = {}) => {
     createModalOpen = false;
+    closeSendDropdown();
     resetCreateState();
     if (rerenderPage) {
       render();
@@ -1723,6 +1888,295 @@ export async function mountWerkbonPage(rootElement) {
     invoices = invoices.map((invoice) => (invoice.id === invoiceId ? buildInvoiceRecord(updater(invoice)) : invoice));
   };
 
+  const findInvoiceById = (invoiceId) => invoices.find((item) => item.id === invoiceId) ?? null;
+
+  const resolveGarageScopeId = (invoice) => String(invoice?.garageId || authState.activeGarage?.id || "");
+
+  const getRowByInvoiceId = (invoiceId) => {
+    if (!(listElement instanceof HTMLElement)) {
+      return null;
+    }
+    const rows = listElement.querySelectorAll("[data-werkbon-row-id]");
+    for (const row of rows) {
+      if (row instanceof HTMLElement && String(row.dataset.werkbonRowId ?? "") === String(invoiceId)) {
+        return row;
+      }
+    }
+    return null;
+  };
+
+  const patchCompletedAppointmentNotes = async (invoice, notesPatch) => {
+    if (!supabase) {
+      throw new Error("Supabase is niet geconfigureerd.");
+    }
+
+    const rowId = String(invoice.completedAppointmentId || invoice.id || "");
+    if (!rowId) {
+      throw new Error("Werkbon ID ontbreekt.");
+    }
+
+    const garageScopeId = resolveGarageScopeId(invoice);
+    let selectQuery = supabase
+      .from("completed_appointments")
+      .select("id, garage_id, completion_notes")
+      .eq("id", rowId);
+
+    if (garageScopeId) {
+      selectQuery = selectQuery.eq("garage_id", garageScopeId);
+    }
+
+    const { data: row, error: selectError } = await selectQuery.maybeSingle();
+    if (selectError) {
+      throw selectError;
+    }
+    if (!row) {
+      throw new Error("Werkbon niet gevonden.");
+    }
+
+    const currentNotes = parseCompletionNotes(row.completion_notes);
+    const nextNotes = {
+      ...currentNotes,
+      ...notesPatch,
+    };
+
+    let updateQuery = supabase
+      .from("completed_appointments")
+      .update({ completion_notes: JSON.stringify(nextNotes) })
+      .eq("id", rowId);
+
+    if (garageScopeId) {
+      updateQuery = updateQuery.eq("garage_id", garageScopeId);
+    }
+
+    const { error: updateError } = await updateQuery;
+    if (updateError) {
+      throw updateError;
+    }
+
+    return nextNotes;
+  };
+
+  const fetchSendPayload = async (invoiceId) => {
+    const invoice = findInvoiceById(invoiceId);
+    if (!invoice) {
+      throw new Error("Werkbon niet gevonden.");
+    }
+
+    const rowId = String(invoice.completedAppointmentId || invoice.id || "");
+    if (!rowId || !supabase) {
+      const fallbackFactuurnummer = "";
+      return {
+        invoice,
+        customer_name: invoice.customerName,
+        customer_email: "",
+        customer_phone: "",
+        factuurnummer: fallbackFactuurnummer,
+        total: invoice.summary.total,
+        status: invoice.status,
+      };
+    }
+
+    const garageScopeId = resolveGarageScopeId(invoice);
+    let query = supabase
+      .from("werkbonnen")
+      .select("werkbon_id, garage_id, customer_name, customer_email, customer_phone, invoice_number, total_amount, invoice_status, payment_link, payment_link_sent_at, payment_method")
+      .eq("werkbon_id", rowId);
+
+    if (garageScopeId) {
+      query = query.eq("garage_id", garageScopeId);
+    }
+
+    const { data: row, error } = await query.maybeSingle();
+    if (error) {
+      throw error;
+    }
+
+    const totalAmount = Number(row?.total_amount ?? 0);
+    return {
+      invoice,
+      customer_name: String(row?.customer_name ?? invoice.customerName ?? "Klant"),
+      customer_email: String(row?.customer_email ?? "").trim(),
+      customer_phone: String(row?.customer_phone ?? "").trim(),
+      factuurnummer: String(row?.invoice_number ?? "").trim(),
+      total: Number.isFinite(totalAmount) && totalAmount > 0 ? totalAmount : invoice.summary.total,
+      status: String(row?.invoice_status ?? invoice.status ?? "draft"),
+      payment_link: String(row?.payment_link ?? "").trim(),
+      payment_link_sent_at: String(row?.payment_link_sent_at ?? "").trim(),
+      payment_method: String(row?.payment_method ?? "").trim(),
+    };
+  };
+
+  const applyInvoiceStatusLocally = (invoiceId, nextStatus) => {
+    updateInvoice(invoiceId, (currentInvoice) => ({
+      ...currentInvoice,
+      status: normalizeStatus(nextStatus),
+    }));
+  };
+
+  const sendViaEmail = async (payload) => {
+    if (!payload.customer_email) {
+      showToast("Geen e-mailadres bekend voor deze klant", "error");
+      return false;
+    }
+
+    await patchCompletedAppointmentNotes(payload.invoice, {
+      status: "sent",
+    });
+    applyInvoiceStatusLocally(payload.invoice.id, "sent");
+    showToast("Factuur verstuurd per e-mail ✓", "success");
+    return true;
+  };
+
+  const sendViaWhatsapp = async (payload) => {
+    if (!payload.customer_phone) {
+      showToast("Geen telefoonnummer bekend voor deze klant", "error");
+      return false;
+    }
+
+    const whatsappPhone = formatWhatsappPhone(payload.customer_phone);
+    if (!whatsappPhone) {
+      showToast("Geen telefoonnummer bekend voor deze klant", "error");
+      return false;
+    }
+
+    const garage = garageSettings || authState.activeGarage;
+    const paymentMode = String(garage?.mollieMethod || "none");
+    const paymentDays = Math.max(1, parseInt(String(garage?.paymentDays ?? 14), 10) || 14);
+    const garageName = String(garage?.garageName || garage?.name || "Uw garage");
+
+    let paymentLink = null;
+    try {
+      paymentLink = await generatePaymentLink(
+        garage,
+        {
+          totalAmount: payload.total,
+          factuurnummer: payload.factuurnummer || "",
+          customerName: payload.customer_name || "Klant",
+          paymentDays,
+        },
+        (warning) => showToast(warning, "error"),
+        supabase,
+      );
+    } catch {
+      // Non-critical — proceed without payment link
+    }
+
+    if (paymentMode !== "none" && !paymentLink) {
+      showToast("Geen betaallink gemaakt. Controleer Mollie API-sleutel/instellingen en probeer opnieuw.", "error");
+      return false;
+    }
+
+    const messageParts = [
+      `Beste ${payload.customer_name || "klant"},`,
+      "",
+      `Hierbij uw factuur van ${garageName}.`,
+      "",
+      `Factuurnummer: ${payload.factuurnummer || "-"}`,
+      `Totaalbedrag: €${formatWhatsappInvoiceTotal(payload.total)}`,
+      `Betaaltermijn: ${paymentDays} dagen`,
+    ];
+
+    if (paymentLink) {
+      messageParts.push("", "Betaal eenvoudig via Mollie:", paymentLink);
+    }
+
+    messageParts.push("", "Met vriendelijke groet,", garageName);
+
+    const message = messageParts.join("\n");
+
+    const targetUrl = `https://wa.me/${encodeURIComponent(whatsappPhone)}?text=${encodeURIComponent(message)}`;
+    window.open(targetUrl, "_blank", "noopener,noreferrer");
+
+    if (paymentLink) {
+      try {
+        await patchCompletedAppointmentNotes(payload.invoice, {
+          status: payload.invoice.status !== "paid" ? "sent" : payload.invoice.status,
+          payment_link: paymentLink,
+          payment_link_sent_at: new Date().toISOString(),
+          payment_method: "mollie",
+        });
+        const now = new Date().toISOString();
+        const idx = invoices.findIndex((item) => item.id === payload.invoice.id);
+        if (idx !== -1) {
+          invoices[idx] = {
+            ...invoices[idx],
+            status: invoices[idx].status !== "paid" ? "sent" : invoices[idx].status,
+            paymentLink,
+            paymentLinkSentAt: now,
+            paymentMethod: "mollie",
+          };
+        }
+      } catch {
+        // Non-critical — payment link was still sent via WhatsApp
+      }
+    } else {
+      applyInvoiceStatusLocally(payload.invoice.id, "sent");
+    }
+
+    showToast("WhatsApp bericht geopend ✓", "success");
+    return true;
+  };
+
+  const openSendDropdown = (button, payload) => {
+    closeSendDropdown();
+
+    const rect = button.getBoundingClientRect();
+    const dropdown = document.createElement("div");
+    dropdown.className = "send-dropdown";
+    dropdown.setAttribute("data-send-dropdown", "true");
+
+    dropdown.innerHTML = `
+      <button type="button" data-send-option="email" data-werkbon-id="${escapeHtml(payload.invoice.id)}">
+        📧 Per e-mail ${payload.customer_email ? "" : '<span class="send-dropdown-muted">(geen e-mail)</span>'}
+      </button>
+      <button type="button" data-send-option="whatsapp" data-werkbon-id="${escapeHtml(payload.invoice.id)}">
+        💬 Via WhatsApp ${payload.customer_phone ? "" : '<span class="send-dropdown-muted">(geen telefoon)</span>'}
+      </button>
+      <button type="button" data-send-option="both" data-werkbon-id="${escapeHtml(payload.invoice.id)}">
+        📤 Beide versturen
+      </button>
+    `;
+
+    document.body.append(dropdown);
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const menuRect = dropdown.getBoundingClientRect();
+    const left = Math.max(8, Math.min(rect.left, viewportWidth - menuRect.width - 8));
+    const top = rect.bottom + menuRect.height + 8 > viewportHeight
+      ? Math.max(8, rect.top - menuRect.height - 8)
+      : rect.bottom + 6;
+
+    dropdown.style.left = `${Math.round(left)}px`;
+    dropdown.style.top = `${Math.round(top)}px`;
+
+    activeSendDropdown = dropdown;
+    activeSendPayload = payload;
+  };
+
+  const setButtonLoading = (button, loadingText) => {
+    if (!(button instanceof HTMLButtonElement)) {
+      return () => {};
+    }
+    const originalLabel = button.textContent || "";
+    button.disabled = true;
+    button.textContent = loadingText;
+    return () => {
+      button.disabled = false;
+      button.textContent = originalLabel;
+    };
+  };
+
+  const fadeOutInvoiceRow = (invoiceId) => new Promise((resolve) => {
+    const row = getRowByInvoiceId(invoiceId);
+    if (!(row instanceof HTMLElement)) {
+      resolve();
+      return;
+    }
+
+    row.classList.add("werkbon-row-removing");
+    window.setTimeout(resolve, 220);
+  });
+
   const expandInvoice = (invoiceId) => {
     expandedInvoiceId = invoiceId;
     render();
@@ -1755,7 +2209,7 @@ export async function mountWerkbonPage(rootElement) {
     openWerkbonModal(invoiceId, false);
   };
 
-  const markInvoicePaid = (invoiceId) => {
+  const markInvoicePaid = async (invoiceId, button) => {
     const invoice = invoices.find((item) => item.id === invoiceId);
     if (!invoice) {
       return;
@@ -1767,12 +2221,39 @@ export async function mountWerkbonPage(rootElement) {
       return;
     }
 
-    updateInvoice(invoiceId, (currentInvoice) => ({
-      ...currentInvoice,
-      status: "paid",
-    }));
-    setNotice(`Payment completed for ${formatLicensePlate(invoice.licensePlate)}.`);
-    openWerkbonModal(invoiceId, false);
+    const confirmed = await showWerkbonConfirmDialog({
+      title: "Werkbon markeren als betaald?",
+      body: "Dit registreert de betaling als vandaag ontvangen.",
+      confirmLabel: "Markeer als betaald",
+      cancelLabel: "Annuleren",
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    const stopLoading = setButtonLoading(button, "Opslaan...");
+    try {
+      await patchCompletedAppointmentNotes(invoice, {
+        status: "paid",
+        payment_method: "manual",
+        payment_date: new Date().toISOString(),
+      });
+
+      updateInvoice(invoiceId, (currentInvoice) => ({
+        ...currentInvoice,
+        status: "paid",
+      }));
+
+      showToast("Werkbon gemarkeerd als betaald ✓", "success");
+      render();
+    } catch {
+      showToast("Er ging iets mis", "error");
+      stopLoading();
+      return;
+    }
+
+    stopLoading();
   };
 
   const handleSaveEdit = (invoiceId) => {
@@ -1810,39 +2291,57 @@ export async function mountWerkbonPage(rootElement) {
     render();
   };
 
-  const deleteInvoice = async (invoiceId) => {
+  const deleteInvoice = async (invoiceId, button) => {
     const invoice = invoices.find((item) => item.id === invoiceId);
     if (!invoice) {
       return;
     }
 
-    const confirmed = await showConfirmDialog(
-      "Are you sure you want to delete this werkbon? This action cannot be undone.",
-      "Delete Werkbon",
-    );
+    const confirmed = await showWerkbonConfirmDialog({
+      title: "Werkbon verwijderen?",
+      body: "Deze actie kan niet ongedaan worden gemaakt. De werkbon wordt permanent verwijderd.",
+      confirmLabel: "Verwijderen",
+      cancelLabel: "Annuleren",
+      confirmClassName: "danger",
+    });
+
     if (!confirmed) {
       return;
     }
 
+    const stopLoading = setButtonLoading(button, "Opslaan...");
+
     try {
-      if (invoice.completedAppointmentId) {
-        const updatedId = await setWerkbonCreatedForCompletedAppointment({
-          completedAppointmentId: invoice.completedAppointmentId,
-          garageId: invoice.garageId,
-        }, { created: false });
-        if (!updatedId) {
-          throw new Error("Unable to remove this werkbon from the werkbon list.");
-        }
-      } else if (invoice.bookingId) {
-        await deleteBooking({
-          id: invoice.bookingId,
-          garageId: invoice.garageId,
-        });
+      if (!supabase) {
+        throw new Error("Supabase is niet geconfigureerd.");
+      }
+
+      const rowId = String(invoice.completedAppointmentId || invoice.id || "");
+      if (!rowId) {
+        throw new Error("Werkbon ID ontbreekt.");
+      }
+
+      let deleteQuery = supabase
+        .from("completed_appointments")
+        .delete()
+        .eq("id", rowId);
+
+      const garageScopeId = resolveGarageScopeId(invoice);
+      if (garageScopeId) {
+        deleteQuery = deleteQuery.eq("garage_id", garageScopeId);
+      }
+
+      const { error } = await deleteQuery;
+      if (error) {
+        throw error;
       }
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : "Unable to delete this werkbon.");
+      showToast("Verwijderen mislukt", "error");
+      stopLoading();
       return;
     }
+
+    await fadeOutInvoiceRow(invoiceId);
 
     invoices = invoices.filter((item) => item.id !== invoiceId);
     if (expandedInvoiceId === invoiceId) {
@@ -1853,8 +2352,85 @@ export async function mountWerkbonPage(rootElement) {
       modalOpen = false;
       editingInvoiceId = "";
     }
-    setNotice("Werkbon deleted.");
+    showToast("Werkbon verwijderd", "success");
+    closeSendDropdown();
     render();
+    stopLoading();
+  };
+
+  const handleWerkbonAction = async (action, invoiceId, actionButton) => {
+    if (action === "view") {
+      window.location.href = pageUrl(`werkbon-detail.html?id=${encodeURIComponent(invoiceId)}`);
+      return;
+    }
+
+    if (action === "edit") {
+      window.location.href = pageUrl(`werkbon-detail.html?id=${encodeURIComponent(invoiceId)}&edit=true`);
+      return;
+    }
+
+    if (action === "cancel-edit") {
+      editingInvoiceId = "";
+      modalOpen = false;
+      render();
+      return;
+    }
+
+    if (action === "save-edit") {
+      handleSaveEdit(invoiceId);
+      return;
+    }
+
+    if (action === "send-customer") {
+      if (!(actionButton instanceof HTMLButtonElement)) {
+        return;
+      }
+
+      if (activeSendPayload?.invoice?.id === invoiceId && activeSendDropdown instanceof HTMLElement) {
+        closeSendDropdown();
+        return;
+      }
+
+      const stopLoading = setButtonLoading(actionButton, "Laden...");
+      try {
+        const payload = await fetchSendPayload(invoiceId);
+        openSendDropdown(actionButton, payload);
+      } catch {
+        showToast("Er ging iets mis", "error");
+      }
+      stopLoading();
+      return;
+    }
+
+    if (action === "send-sms") {
+      applySendStatus(invoiceId, "SMS");
+      return;
+    }
+
+    if (action === "send-whatsapp") {
+      applySendStatus(invoiceId, "WhatsApp");
+      return;
+    }
+
+    if (action === "mark-paid") {
+      await markInvoicePaid(invoiceId, actionButton);
+      return;
+    }
+
+    if (action === "download-pdf") {
+      const invoice = invoices.find((item) => item.id === invoiceId);
+      if (!invoice) {
+        return;
+      }
+
+      const popupOpened = openPrintWindow(invoice);
+      setNotice(popupOpened ? "Print dialog opened for PDF export." : "Allow pop-ups to export this werkbon as PDF.");
+      return;
+    }
+
+    if (action === "delete") {
+      await deleteInvoice(invoiceId, actionButton);
+    }
   };
 
   const render = () => {
@@ -2202,61 +2778,7 @@ export async function mountWerkbonPage(rootElement) {
         return;
       }
 
-      if (action === "view") {
-        window.location.href = pageUrl(`werkbon-detail.html?id=${encodeURIComponent(invoiceId)}`);
-        return;
-      }
-
-      if (action === "edit") {
-        openWerkbonModal(invoiceId, true);
-        return;
-      }
-
-      if (action === "cancel-edit") {
-        editingInvoiceId = "";
-        modalOpen = false;
-        render();
-        return;
-      }
-
-      if (action === "save-edit") {
-        handleSaveEdit(invoiceId);
-        return;
-      }
-
-      if (action === "send-customer") {
-        applySendStatus(invoiceId, "SMS / WhatsApp");
-        return;
-      }
-
-      if (action === "send-sms") {
-        applySendStatus(invoiceId, "SMS");
-        return;
-      }
-
-      if (action === "send-whatsapp") {
-        applySendStatus(invoiceId, "WhatsApp");
-        return;
-      }
-
-      if (action === "mark-paid") {
-        markInvoicePaid(invoiceId);
-        return;
-      }
-
-      if (action === "download-pdf") {
-        const invoice = invoices.find((item) => item.id === invoiceId);
-        if (!invoice) {
-          return;
-        }
-
-        const popupOpened = openPrintWindow(invoice);
-        setNotice(popupOpened ? "Print dialog opened for PDF export." : "Allow pop-ups to export this werkbon as PDF.");
-      }
-
-      if (action === "delete") {
-        void deleteInvoice(invoiceId);
-      }
+      await handleWerkbonAction(action, invoiceId, actionButton);
       return;
     }
 
@@ -2269,6 +2791,49 @@ export async function mountWerkbonPage(rootElement) {
       }
     }
   });
+
+  const previousWerkbonDocumentClickHandler = window.__werkbonDocumentClickHandler;
+  if (typeof previousWerkbonDocumentClickHandler === "function") {
+    document.removeEventListener("click", previousWerkbonDocumentClickHandler);
+  }
+
+  const handleWerkbonDocumentClick = async (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) {
+      return;
+    }
+
+    const sendOptionButton = target.closest("[data-send-option]");
+    if (sendOptionButton instanceof HTMLButtonElement && activeSendPayload) {
+      event.preventDefault();
+      const option = String(sendOptionButton.dataset.sendOption ?? "");
+      const payload = activeSendPayload;
+      closeSendDropdown();
+
+      try {
+        if (option === "email") {
+          await sendViaEmail(payload);
+        } else if (option === "whatsapp") {
+          await sendViaWhatsapp(payload);
+        } else if (option === "both") {
+          await sendViaEmail(payload);
+          await sendViaWhatsapp(payload);
+        }
+        render();
+      } catch {
+        showToast("Er ging iets mis", "error");
+      }
+
+      return;
+    }
+
+    if (!(target.closest("[data-send-dropdown]") || target.closest('[data-werkbon-action="send-customer"]'))) {
+      closeSendDropdown();
+    }
+  };
+
+  window.__werkbonDocumentClickHandler = handleWerkbonDocumentClick;
+  document.addEventListener("click", handleWerkbonDocumentClick);
 
   contentArea.addEventListener("keydown", (event) => {
     const target = event.target instanceof HTMLElement ? event.target : null;
@@ -2317,6 +2882,8 @@ export async function mountWerkbonPage(rootElement) {
 
   searchInput?.addEventListener("input", render);
   statusFilter?.addEventListener("change", render);
+
+  await loadGarageSettings();
 
   try {
     let completedRows = [];

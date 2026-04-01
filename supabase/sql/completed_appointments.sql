@@ -1,55 +1,54 @@
 -- ============================================================
--- STEP 2 — Completed Appointments
--- ============================================================
--- Run AFTER step 1 (01_bookings.sql).
--- Safe to re-run (all statements are idempotent).
---
--- This table is the central store for every appointment that
--- was marked as "done". It also carries the full werkbon /
--- invoice data inside the completion_notes JSON column.
--- The werkbon detail page reads from and writes to this table.
+-- COMPLETED_APPOINTMENTS + TRIGGER
+-- Uitvoeren NA bookings.sql.
+-- Veilig opnieuw uitvoerbaar (idempotent).
 -- ============================================================
 
 -- ------------------------------------------------------------
 -- completed_appointments
+-- Centrale opslag voor iedere afgeronde werkbon.
+-- De volledige werkbon-payload zit als JSON in completion_notes.
 -- ------------------------------------------------------------
 create table if not exists public.completed_appointments (
   id               uuid        primary key default gen_random_uuid(),
   garage_id        uuid        not null references public.garages (id) on delete cascade,
 
-  -- The original booking that was completed (nullable: may not exist
-  -- for manually-created werkbonnen).
-  booking_id       uuid        references public.bookings (id) on delete set null,
+  -- Originele boeking (null bij handmatig aangemaakte werkbon)
+  booking_id       uuid,
 
-  -- When the work was finished
+  -- Wanneer het werk is afgerond
   completed_at     timestamptz not null default now(),
 
-  -- Appointment slot (copied from booking_schedule at completion time)
+  -- Datum + tijd van de afspraak (gekopieerd uit booking_schedule)
   appointment_date date,
   appointment_time time,
 
-  -- Quick-access columns (also stored inside completion_notes)
+  -- Snelzoek-kolommen (ook aanwezig in completion_notes JSON)
   license_plate    text,
   service          text,
 
-  -- Full werkbon / invoice payload stored as JSON.
-  -- Shape written by the dashboard:
+  -- Volledig werkbon-/factuurpayload als JSON.
+  -- Structuur (geschreven door de werkbon-detailpagina):
   -- {
-  --   "status":         "draft" | "sent" | "paid",
-  --   "invoice_number": "WB-1001",
-  --   "customer_name":  "...",
-  --   "customer_phone": "...",
-  --   "customer_email": "...",
-  --   "car_model":      "...",
-  --   "km_stand":       0,
-  --   "vat_enabled":    true,
-  --   "service_types":  ["APK", "Onderhoud"],
-  --   "parts":          [{ "name": "...", "quantity": 1, "price": 0 }],
-  --   "labour":         { "hours": 0, "rate": 0 },
-  --   "totals":         { "subtotal": 0, "vat": 0, "total": 0 },
-  --   "paid_at":        null,
-  --   "internal_note":  "",
-  --   "completed_at":   "2026-03-29T..."
+  --   "status":               "draft" | "sent" | "paid",
+  --   "invoice_number":       "F-001001",
+  --   "customer_name":        "...",
+  --   "customer_phone":       "...",
+  --   "customer_email":       "...",
+  --   "car_model":            "...",
+  --   "km_stand":             0,
+  --   "vat_enabled":          true,
+  --   "service_types":        ["APK", "Onderhoud"],
+  --   "parts":                [{ "name": "...", "quantity": 1, "price": 0 }],
+  --   "labour":               { "hours": 0, "rate": 0 },
+  --   "totals":               { "subtotal": 0, "vat": 0, "total": 0 },
+  --   "paid_at":              null,
+  --   "internal_note":        "",
+  --   "werkbon_created":      true,
+  --   "payment_link":         "https://...",
+  --   "payment_link_sent_at": "2026-...",
+  --   "payment_method":       "mollie" | "cash",
+  --   "completed_at":         "2026-..."
   -- }
   completion_notes text,
 
@@ -62,10 +61,30 @@ create index if not exists completed_appointments_garage_completed_at_idx
 create index if not exists completed_appointments_booking_id_idx
   on public.completed_appointments (booking_id);
 
+-- Voeg de FK pas toe als public.bookings bestaat.
+-- Zo crasht dit script niet als iemand de files in een andere volgorde uitvoert.
+do $$
+begin
+  if to_regclass('public.bookings') is not null then
+    if not exists (
+      select 1
+      from pg_constraint
+      where conname = 'completed_appointments_booking_id_fkey'
+        and conrelid = 'public.completed_appointments'::regclass
+    ) then
+      alter table public.completed_appointments
+        add constraint completed_appointments_booking_id_fkey
+        foreign key (booking_id)
+        references public.bookings (id)
+        on delete set null;
+    end if;
+  end if;
+end
+$$;
+
 -- ------------------------------------------------------------
--- Trigger: automatically mark the linked booking as 'done'
--- in the bookings table the moment a completed_appointments
--- row is inserted from the dashboard.
+-- Trigger: markeer de gekoppelde booking als 'done'
+-- zodra een completed_appointments rij is ingevoegd.
 -- ------------------------------------------------------------
 create or replace function public.fn_booking_mark_done()
 returns trigger
@@ -74,11 +93,12 @@ security definer
 set search_path = public
 as $$
 begin
-  if new.booking_id is not null then
-    update public.bookings
-    set    status = 'done'
-    where  id = new.booking_id
-      and  status <> 'done';   -- no-op if already done
+  if new.booking_id is not null and to_regclass('public.bookings') is not null then
+    execute
+      'update public.bookings
+       set status = ''done''
+       where id = $1
+         and status <> ''done''' using new.booking_id;
   end if;
   return new;
 end;
@@ -94,7 +114,6 @@ create trigger trg_booking_mark_done
 -- ============================================================
 -- Row Level Security
 -- ============================================================
-
 alter table public.completed_appointments enable row level security;
 
 drop policy if exists completed_owner_select on public.completed_appointments;
@@ -107,8 +126,7 @@ create policy completed_owner_select
   using (
     exists (
       select 1 from public.garages g
-      where g.id = completed_appointments.garage_id
-        and g.user_id = auth.uid()
+      where g.id = completed_appointments.garage_id and g.user_id = auth.uid()
     )
   );
 
@@ -117,8 +135,7 @@ create policy completed_owner_insert
   with check (
     exists (
       select 1 from public.garages g
-      where g.id = completed_appointments.garage_id
-        and g.user_id = auth.uid()
+      where g.id = completed_appointments.garage_id and g.user_id = auth.uid()
     )
   );
 
@@ -127,15 +144,13 @@ create policy completed_owner_update
   using (
     exists (
       select 1 from public.garages g
-      where g.id = completed_appointments.garage_id
-        and g.user_id = auth.uid()
+      where g.id = completed_appointments.garage_id and g.user_id = auth.uid()
     )
   )
   with check (
     exists (
       select 1 from public.garages g
-      where g.id = completed_appointments.garage_id
-        and g.user_id = auth.uid()
+      where g.id = completed_appointments.garage_id and g.user_id = auth.uid()
     )
   );
 
@@ -144,8 +159,7 @@ create policy completed_owner_delete
   using (
     exists (
       select 1 from public.garages g
-      where g.id = completed_appointments.garage_id
-        and g.user_id = auth.uid()
+      where g.id = completed_appointments.garage_id and g.user_id = auth.uid()
     )
   );
 
