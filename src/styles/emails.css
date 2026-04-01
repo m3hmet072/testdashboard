@@ -249,3 +249,73 @@
     text-align: center;
   }
 }
+
+/* ─── TABLET ─── */
+@media (max-width: 1024px) {
+  .emails-layout {
+    grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.1fr);
+  }
+}
+
+/* ─── MOBILE ─── */
+@media (max-width: 768px) {
+  .emails-layout {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .emails-search-wrap {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .emails-list {
+    max-height: none;
+    padding-right: 0;
+  }
+
+  .emails-row {
+    border-radius: 12px;
+    padding: 12px;
+  }
+
+  .emails-row-top h4 {
+    font-size: 1rem;
+  }
+
+  .emails-detail {
+    border-radius: 0;
+    border: 0;
+    padding: 12px;
+    min-height: 100vh;
+  }
+
+  .emails-detail-header {
+    position: sticky;
+    top: 0;
+    background: var(--fff);
+    z-index: 2;
+    padding-top: 6px;
+  }
+
+  .emails-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .emails-detail-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .emails-detail-actions .button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+/* ─── SMALL MOBILE ─── */
+@media (max-width: 375px) {
+  .emails-row {
+    padding: 10px;
+  }
+}

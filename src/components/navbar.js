@@ -119,6 +119,13 @@ export function createNavbar({ title, headerNote = "", garage, activePage = "das
   const safeDomainLabel = escapeHtml(domain.label);
   const safeDomainHref = escapeHtml(domain.href);
 
+  // Brand mark for the off-canvas trigger shown at ≤1024px
+  const brandInitial = escapeHtml(String(garage?.name?.[0] ?? "G").toUpperCase());
+  const brandTriggerMark = garage?.logoUrl
+    ? `<img class="brand-logo" src="${escapeHtml(garage.logoUrl)}" alt="" />`
+    : `<span class="brand-mark">${brandInitial}</span>`;
+  const brandTriggerName = escapeHtml(garage?.name ?? "");
+
   const pageIconSrc = getPageIconImage(activePage);
   const pageIconElement = pageIconSrc
     ? `<img class="topbar-page-icon topbar-page-icon-${escapeHtml(activePage)}" src="${pageIconSrc}" alt="${safeTitle} icon" />`
@@ -126,15 +133,34 @@ export function createNavbar({ title, headerNote = "", garage, activePage = "das
 
   navbar.innerHTML = `
     <header class="topbar">
+      <button class="topbar-hamburger" type="button" aria-label="Open navigation menu">
+        ${brandTriggerMark}
+        <span class="topbar-hamburger-label">${brandTriggerName}</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
       <div class="topbar-main-row">
-        <label class="topbar-search" aria-label="Search">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M11.3333 11.332L13.9999 13.9987" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333Z" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
+        <div class="topbar-global-search" data-global-search-root>
+          <button class="topbar-mobile-search-trigger" type="button" aria-label="Open global search">
+            <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false">
+              <path d="M11.3333 11.332L13.9999 13.9987" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
 
-          <input type="search" placeholder="Search..." />
-        </label>
+          <div class="topbar-search-shell">
+            <label class="topbar-search" aria-label="Global search">
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false">
+                <path d="M11.3333 11.332L13.9999 13.9987" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <input class="topbar-search-input" type="search" placeholder="Zoek afspraken, werkbonnen, klanten..." autocomplete="off" />
+              <span class="topbar-search-shortcut" data-search-shortcut-hint>Ctrl+K</span>
+            </label>
+            <div class="global-search-dropdown" data-global-search-dropdown hidden></div>
+          </div>
+        </div>
 
         <div class="topbar-domain">
           <div class="topbar-domain-inner-left-side">

@@ -604,6 +604,11 @@ export async function mountBookingsPage(rootElement) {
   let editingBookingId = "";
   const vehicleCache = new Map();
 
+  const initialSearchParams = new URLSearchParams(window.location.search);
+  const initialBookingId = String(initialSearchParams.get("bookingId") ?? "").trim();
+  const initialCustomer = String(initialSearchParams.get("customer") ?? "").trim();
+  const initialPlate = String(initialSearchParams.get("plate") ?? "").trim();
+
   const render = () => {
     const searchTerm = String(searchInput.value ?? "").trim().toLowerCase();
     const selectedService = String(serviceFilter.value ?? "all");
@@ -640,6 +645,22 @@ export async function mountBookingsPage(rootElement) {
     }
 
     listElement.innerHTML = requestCardsMarkup(visibleBookings, expandedBookingId, editingBookingId, vehicleCache);
+  };
+
+  const highlightBookingCard = (bookingId) => {
+    if (!bookingId) {
+      return;
+    }
+
+    const card = listElement.querySelector(`[data-booking-card-id="${CSS.escape(bookingId)}"]`);
+    if (!(card instanceof HTMLElement)) {
+      return;
+    }
+
+    card.classList.remove("search-target-highlight");
+    card.offsetWidth;
+    card.classList.add("search-target-highlight");
+    card.scrollIntoView({ block: "center", behavior: "smooth" });
   };
 
   contentArea.addEventListener("click", async (event) => {
@@ -839,8 +860,18 @@ export async function mountBookingsPage(rootElement) {
     `;
     customSelects.refresh();
 
-    expandedBookingId = allBookings[0] ? String(allBookings[0].id) : "";
+    if (initialCustomer) {
+      searchInput.value = initialCustomer;
+    } else if (initialPlate) {
+      searchInput.value = initialPlate;
+    }
+
+    expandedBookingId = initialBookingId || (allBookings[0] ? String(allBookings[0].id) : "");
     render();
+
+    if (initialBookingId) {
+      highlightBookingCard(initialBookingId);
+    }
   } catch (error) {
     listElement.innerHTML = '<article class="request-card"><p class="muted">Unable to load appointments.</p></article>';
     setUnreadEmailCount(0);

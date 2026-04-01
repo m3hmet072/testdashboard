@@ -58,6 +58,10 @@ export function isSupabaseConfigured() {
   return hasSupabaseCredentials;
 }
 
+export function getSupabaseClient() {
+  return supabase;
+}
+
 export async function signInWithPassword(email, password) {
   assertSupabaseConfigured();
 

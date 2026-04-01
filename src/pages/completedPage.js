@@ -361,13 +361,28 @@ export async function mountCompletedPage(rootElement) {
   let completedBookings = [];
   let expandedBookingId = "";
   const vehicleCache = new Map();
+  const initialSearchParams = new URLSearchParams(window.location.search);
+  const customerFilter = String(initialSearchParams.get("customer") ?? "").trim().toLowerCase();
 
   const render = () => {
-    if (expandedBookingId && !completedBookings.some((booking) => String(booking.id) === expandedBookingId)) {
+    const visibleBookings = customerFilter
+      ? completedBookings.filter((booking, index) => customerName(booking, index).toLowerCase().includes(customerFilter))
+      : completedBookings;
+
+    if (expandedBookingId && !visibleBookings.some((booking) => String(booking.id) === expandedBookingId)) {
       expandedBookingId = "";
     }
 
-    listElement.innerHTML = completedRowsMarkup(completedBookings, expandedBookingId, vehicleCache);
+    listElement.innerHTML = completedRowsMarkup(visibleBookings, expandedBookingId, vehicleCache);
+
+    if (expandedBookingId) {
+      const card = listElement.querySelector(`[data-booking-card-id="${CSS.escape(expandedBookingId)}"]`);
+      if (card instanceof HTMLElement) {
+        card.classList.remove("search-target-highlight");
+        card.offsetWidth;
+        card.classList.add("search-target-highlight");
+      }
+    }
   };
 
   contentArea.addEventListener("click", async (event) => {
@@ -547,7 +562,12 @@ export async function mountCompletedPage(rootElement) {
       }
     }
 
-    expandedBookingId = completedBookings[0] ? String(completedBookings[0].id) : "";
+    if (customerFilter) {
+      const firstMatch = completedBookings.find((booking, index) => customerName(booking, index).toLowerCase().includes(customerFilter));
+      expandedBookingId = firstMatch ? String(firstMatch.id) : "";
+    } else {
+      expandedBookingId = completedBookings[0] ? String(completedBookings[0].id) : "";
+    }
     render();
   } catch (error) {
     listElement.innerHTML = '<article class="request-card"><p class="muted">Unable to load completed appointments.</p></article>';

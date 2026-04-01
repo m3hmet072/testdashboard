@@ -377,3 +377,140 @@ gap: 10px;
     grid-template-columns: 1fr;
   }
 }
+
+/* ─── TABLET ─── */
+@media (max-width: 1024px) {
+  .calendar-page-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-board-head{
+     justify-content: space-between;
+  align-items: center;
+
+  position: relative;
+
+  z-index: 1;
+  padding: 8px 8px 16px 8px;
+  border-bottom: 1px solid var(--e6e6e6);
+  }
+  .calendar-day-panel {
+    max-height: none;
+  }
+}
+
+/* ─── MOBILE ─── */
+@media (max-width: 768px) {
+  .calendar-board-panel {
+    padding: 8px;
+  }
+
+  .calendar-board-head {
+    padding: 6px 4px 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  position: relative;
+
+  z-index: 1;
+  padding: 8px 8px 16px 8px;
+  border-bottom: 1px solid var(--e6e6e6);
+  }
+
+  .calendar-board-nav {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .calendar-nav-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .calendar-period-label {
+    text-align: center;
+    flex: 1;
+  }
+
+  .calendar-mode-tabs {
+    width: 100%;
+  }
+
+  .calendar-mode-tab {
+    flex: 1;
+    min-height: 44px;
+  }
+
+  .month-grid-cells {
+    gap: 6px;
+  }
+
+  .month-cell {
+    min-height: 62px;
+    border-radius: 10px;
+    padding: 4px;
+  }
+
+  .month-cell.is-today::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    top: 6px;
+    right: 6px;
+    background: var(--0082fb);
+    padding: 0;
+  }
+
+  .month-cell-dot {
+    width: 6px;
+    height: 6px;
+    bottom: 6px;
+  }
+
+  .calendar-day-panel {
+    display: flex;
+    max-height: none;
+  }
+
+  .calendar-sheet {
+    position: fixed;
+    bottom: -100%;
+    left: 0;
+    right: 0;
+    background: var(--fff);
+    border-radius: 16px 16px 0 0;
+    padding: 20px;
+    z-index: 500;
+    transition: bottom 0.3s ease;
+    max-height: 65vh;
+    overflow-y: auto;
+  }
+
+  .calendar-sheet.open {
+    bottom: 0;
+  }
+
+  .sheet-handle {
+    width: 40px;
+    height: 4px;
+    background: #e2e8f0;
+    border-radius: 2px;
+    margin: 0 auto 16px;
+  }
+}
+
+/* ─── SMALL MOBILE ─── */
+@media (max-width: 375px) {
+  .month-cell {
+    min-height: 56px;
+  }
+
+  .month-weekday {
+    font-size: 12px;
+  }
+}

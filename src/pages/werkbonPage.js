@@ -1174,6 +1174,8 @@ export async function mountWerkbonPage(rootElement) {
   const createTrigger = contentArea.querySelector("#werkbonCreateTrigger");
   const statusFilter = contentArea.querySelector("#werkbonStatusFilter");
   const searchInput = contentArea.querySelector("#werkbonSearch");
+  const initialSearchParams = new URLSearchParams(window.location.search);
+  const openCreateFromSearch = String(initialSearchParams.get("action") ?? "").toLowerCase() === "create";
 
   let invoices = [];
   let expandedInvoiceId = invoices[0]?.id ?? "";
@@ -2371,4 +2373,10 @@ export async function mountWerkbonPage(rootElement) {
   }
 
   render();
+
+  if (openCreateFromSearch) {
+    createModalOpen = true;
+    createModalStep = 1;
+    renderCreateModalDom({ forceMount: true, refreshContent: true });
+  }
 }

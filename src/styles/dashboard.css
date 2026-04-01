@@ -132,3 +132,60 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ─── TABLET ─── */
+@media (max-width: 1024px) {
+  .dashboard-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-schedule-panel,
+  .dashboard-overview-panel {
+    width: 100%;
+  }
+}
+
+/* ─── MOBILE ─── */
+@media (max-width: 768px) {
+  .dashboard-schedule-panel,
+  .dashboard-overview-panel {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .schedule-row {
+    padding: 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .schedule-row-main {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .schedule-time {
+    min-width: 0;
+    font-size: 13px;
+  }
+
+  .dashboard-overview-body {
+    gap: 12px;
+  }
+
+  .overview-chart-wrap {
+    width: 140px;
+    height: 140px;
+  }
+}
+
+/* ─── SMALL MOBILE ─── */
+@media (max-width: 375px) {
+  .overview-chart-wrap {
+    width: 128px;
+    height: 128px;
+  }
+}

@@ -1,5 +1,6 @@
 import { createNavbar } from "./navbar.js";
 import { createSidebar, setSidebarEmailUnreadCount } from "./sidebar.js";
+import { initializeGlobalSearch } from "./search.js";
 
 const PREFETCHED_DOCUMENTS_KEY = "garage-dashboard.prefetched-documents";
 const PREFETCH_DOCUMENTS = [
@@ -75,6 +76,32 @@ export function createAppShell({
 
   workspace.append(titleRow, contentArea);
   shell.append(sidebar, mainContent);
+
+  // Mobile sidebar overlay
+  const overlay = document.createElement("div");
+  overlay.className = "sidebar-overlay";
+  shell.append(overlay);
+
+  const openSidebar = () => {
+    sidebar.classList.add("open");
+    overlay.classList.add("open");
+    document.body.style.overflow = "hidden";
+  };
+
+  const closeSidebar = () => {
+    sidebar.classList.remove("open");
+    overlay.classList.remove("open");
+    document.body.style.overflow = "";
+  };
+
+  const hamburger = header.querySelector(".topbar-hamburger");
+  hamburger?.addEventListener("click", openSidebar);
+  overlay.addEventListener("click", closeSidebar);
+
+  initializeGlobalSearch({
+    header,
+    garageId: garage?.id ?? "",
+  });
 
   if (sidebar.dataset.collapsed === "true") {
     shell.classList.add("is-sidebar-collapsed");

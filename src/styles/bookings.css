@@ -779,3 +779,105 @@
     height: 1.85rem;
   }
 }
+
+/* ─── TABLET ─── */
+@media (max-width: 1024px) {
+  .bookings-panel-head {
+    align-items: stretch;
+  }
+
+  .booking-toolbar,
+  .booking-list-controls {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .booking-search-wrap {
+    width: min(280px, 100%);
+  }
+}
+
+/* ─── MOBILE ─── */
+@media (max-width: 768px) {
+  .booking-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .booking-search-wrap,
+  .booking-select-wrap,
+  .booking-select,
+  .booking-page-size-wrap {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .booking-list-controls {
+    gap: 10px;
+  }
+
+  .booking-pagination {
+    width: 100%;
+    gap: 8px;
+  }
+
+  .booking-page-button {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
+  .booking-page-info {
+    min-width: 0;
+    font-size: 0.82rem;
+  }
+
+  .booking-row,
+  .booking-row.is-selected {
+    border-left-width: 1px;
+    border-radius: 12px;
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .booking-left,
+  .booking-middle,
+  .booking-right {
+    width: 100%;
+  }
+
+  .booking-service-tags,
+  .booking-detail-services {
+    flex-wrap: wrap;
+  }
+
+  .booking-status {
+    min-height: 30px;
+  }
+
+  .booking-detail {
+    border-radius: 12px;
+    padding: 10px;
+  }
+
+  .booking-detail-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .booking-detail-panel {
+    width: 100vw;
+    padding: 12px;
+  }
+}
+
+/* ─── SMALL MOBILE ─── */
+@media (max-width: 375px) {
+  .booking-row {
+    padding: 10px;
+  }
+
+  .booking-inline-meta {
+    font-size: 0.72rem;
+  }
+}

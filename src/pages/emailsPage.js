@@ -383,6 +383,8 @@ export async function mountEmailsPage(rootElement) {
   let expandedEmailId = "";
   let editingEmailId = "";
   const vehicleCache = new Map();
+  const initialSearchParams = new URLSearchParams(window.location.search);
+  const initialEmailId = String(initialSearchParams.get("emailId") ?? "").trim();
 
   const render = () => {
     if (!inboxEmails.some((email) => String(email.id) === expandedEmailId)) {
@@ -396,6 +398,15 @@ export async function mountEmailsPage(rootElement) {
 
     listElement.innerHTML = emailCardsMarkup(inboxEmails, expandedEmailId, editingEmailId, vehicleCache);
     setUnreadEmailCount(inboxEmails.length);
+
+    if (expandedEmailId) {
+      const card = listElement.querySelector(`[data-email-card-id="${CSS.escape(expandedEmailId)}"]`);
+      if (card instanceof HTMLElement) {
+        card.classList.remove("search-target-highlight");
+        card.offsetWidth;
+        card.classList.add("search-target-highlight");
+      }
+    }
   };
 
   contentArea.addEventListener("click", async (event) => {
@@ -572,6 +583,10 @@ export async function mountEmailsPage(rootElement) {
     }
 
     expandedEmailId = inboxEmails[0] ? String(inboxEmails[0].id) : "";
+    expandedEmailId = initialEmailId && inboxEmails.some((email) => String(email.id) === initialEmailId)
+      ? initialEmailId
+      : expandedEmailId;
+
     render();
   } catch (error) {
     listElement.innerHTML = '<article class="request-card"><p class="muted">Unable to load e-mails.</p></article>';

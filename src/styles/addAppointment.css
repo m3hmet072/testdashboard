@@ -408,3 +408,75 @@
     width: 100%;
   }
 }
+
+/* ─── TABLET ─── */
+@media (max-width: 1024px) {
+  .appointment-form-panel {
+    padding: 18px;
+  }
+
+  .appointment-grid-two {
+    grid-template-columns: 1fr;
+  }
+
+  .service-selector-options {
+    flex-wrap: wrap;
+  }
+}
+
+/* ─── MOBILE ─── */
+@media (max-width: 768px) {
+  .appointment-form-panel {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .appointment-create-form {
+    gap: 12px;
+  }
+
+  .appointment-create-form label {
+    gap: 6px;
+    font-size: 14px;
+  }
+
+  .appointment-create-form input,
+  .appointment-create-form select,
+  .appt-picker-field .request-date-trigger,
+  .appt-picker-field .request-time-trigger {
+    width: 100%;
+    min-height: 44px;
+    padding: 12px 14px;
+    font-size: 16px;
+  }
+
+  .service-selector-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .service-option-ui {
+    width: 100%;
+    justify-content: flex-start;
+    min-height: 44px;
+  }
+
+  .manual-appointment-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .manual-appointment-actions button,
+  .appointment-create-form .button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+/* ─── SMALL MOBILE ─── */
+@media (max-width: 375px) {
+  .service-selector-options {
+    grid-template-columns: 1fr;
+  }
+}

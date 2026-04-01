@@ -2337,3 +2337,237 @@ body[data-theme="dark"] .werkbon-input-affix>span {
 body[data-theme="dark"] .werkbon-input-affix input {
     color: #f3f4f6;
 }
+
+/* ─── TABLET ─── */
+@media (max-width: 1024px) {
+    .werkbon-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .werkbon-topbar {
+        grid-template-columns: minmax(0, 1fr) minmax(130px, 170px) auto;
+    }
+
+    .werkbon-card .request-card-head {
+        align-items: stretch;
+    }
+
+    .werkbon-create-panel {
+        width: min(980px, calc(100vw - 2rem));
+        height: calc(88% - 1rem);
+    }
+}
+
+/* ─── MOBILE ─── */
+@media (max-width: 768px) {
+    .werkbon-page {
+        gap: 0.75rem;
+        padding-bottom: calc(72px + env(safe-area-inset-bottom));
+    }
+
+    .werkbon-panel {
+        padding: 0;
+    }
+
+    .werkbon-topbar {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .werkbon-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .werkbon-summary-card {
+        border-radius: 14px;
+    }
+
+    .werkbon-card .request-card-head {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .werkbon-meta,
+    .werkbon-meta-top {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .werkbon-price {
+        font-size: 1rem;
+    }
+
+    .werkbon-bottom-actions,
+    .werkbon-secondary-actions,
+    .werkbon-detail-actions {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .werkbon-bottom-actions .button,
+    .werkbon-secondary-actions .button,
+    .werkbon-detail-actions .button {
+        width: 100%;
+        min-height: 44px;
+    }
+
+    .werkbon-create-trigger-wrap {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        bottom: calc(12px + env(safe-area-inset-bottom));
+        z-index: 40;
+        justify-content: center;
+    }
+
+    .werkbon-create-trigger-wrap .button {
+        width: 100%;
+        min-height: 48px;
+        border-radius: 999px;
+        justify-content: center;
+    }
+
+    .werkbon-create-modal,
+    .werkbon-create-shadow {
+        width: 100vw;
+        height: 100vh;
+    }
+
+    .werkbon-create-shadow {
+        padding: 0;
+        background: rgba(8, 12, 22, 0.75);
+    }
+
+    .werkbon-create-panel {
+        width: 100vw;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+        margin: 0;
+    }
+
+    .werkbon-create-header,
+    .werkbon-create-content,
+    .werkbon-create-actions {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .werkbon-create-stepper {
+        gap: 0.45rem;
+    }
+
+    .werkbon-create-step {
+        min-height: 36px;
+        padding: 0.42rem 0.65rem;
+    }
+
+    .werkbon-create-grid-two,
+    .werkbon-create-content .appointment-grid-two,
+    .werkbon-payment-grid,
+    .werkbon-create-overview {
+        grid-template-columns: 1fr;
+    }
+
+    .werkbon-create-quick-parts {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .werkbon-chip-button {
+        white-space: nowrap;
+        flex: 0 0 auto;
+    }
+
+    .werkbon-create-actions {
+        position: sticky;
+        bottom: 0;
+        z-index: 5;
+        padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    }
+
+    .werkbon-create-actions-left,
+    .werkbon-create-actions-right {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .werkbon-create-actions .button {
+        width: 100%;
+        min-height: 44px;
+    }
+
+    .werkbon-detail-shell {
+        padding: 12px;
+    }
+
+    .werkbon-hdr-identity {
+        justify-content: space-between;
+    }
+
+    .werkbon-detail-fields-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .werkbon-meta-field.werkbon-meta-field-status {
+        grid-column: 1 / -1;
+    }
+
+    .werkbon-parts-hd {
+        display: none;
+    }
+
+    .werkbon-parts-grid,
+    .werkbon-parts-grid--edit,
+    .werkbon-part-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        align-items: start;
+    }
+
+    .werkbon-part-row {
+        border: 1px solid var(--e6e6e6);
+        border-radius: 10px;
+        padding: 10px;
+        margin-bottom: 8px;
+    }
+
+    .werkbon-part-row span:nth-child(n+2),
+    .werkbon-part-row > strong,
+    .werkbon-part-total-edit {
+        text-align: left;
+        line-height: 1.3;
+    }
+
+    .werkbon-labour-edit-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .werkbon-sidebar-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .werkbon-sidebar-actions .button {
+        min-height: 44px;
+        justify-content: center;
+    }
+}
+
+/* ─── SMALL MOBILE ─── */
+@media (max-width: 375px) {
+    .werkbon-summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .werkbon-sidebar-actions {
+        grid-template-columns: 1fr;
+    }
+}

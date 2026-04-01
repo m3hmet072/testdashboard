@@ -4,6 +4,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   base: "/testdashboard/",
   build: {
+    outDir: "docs", // <-- add this line
     rollupOptions: {
       input: {
         index: resolve(__dirname, "index.html"),

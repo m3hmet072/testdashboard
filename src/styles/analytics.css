@@ -31,3 +31,34 @@
     box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
   }
 }
+
+/* ─── TABLET ─── */
+@media (max-width: 1024px) {
+  .analytics-main-panel .chart-wrap {
+    min-height: 280px;
+  }
+}
+
+/* ─── MOBILE ─── */
+@media (max-width: 768px) {
+  .analytics-main-panel .chart-wrap {
+    min-height: 250px;
+    width: 100%;
+  }
+
+  .dashboard-overview-body {
+    grid-template-columns: 1fr;
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ─── SMALL MOBILE ─── */
+@media (max-width: 375px) {
+  .live-visitors-title {
+    gap: 8px;
+  }
+}
