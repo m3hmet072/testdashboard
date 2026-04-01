@@ -134,6 +134,15 @@ function formatDate(value) {
   });
 }
 
+function formatPaidAt(value) {
+  if (!value) return "";
+  const date = parseDate(value);
+  if (!date) return "";
+  const d = date.toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+  const t = date.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return `${d} · ${t}`;
+}
+
 function toDateInputValue(value) {
   const date = parseDate(value);
   if (!date) {
@@ -399,7 +408,8 @@ function statusBadgeMarkup(status) {
 
 function paymentLinkStatusMarkup(invoice) {
   if (invoice.status === "paid") {
-    return '<div class="werkbon-payment-status-paid"><span class="status-chip werkbon-status-paid">Betaald</span></div>';
+    const paidAtStr = invoice.paidAt ? formatPaidAt(invoice.paidAt) : "";
+    return `<div class="werkbon-payment-status-paid"><span class="status-chip werkbon-status-paid">Betaald</span>${paidAtStr ? `<span class="werkbon-paid-at">${escapeHtml(paidAtStr)}</span>` : ""}</div>`;
   }
 
   if (!invoice.paymentLink) {

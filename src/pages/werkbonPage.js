@@ -520,6 +520,15 @@ function parseDate(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function formatPaidAt(value) {
+  if (!value) return "";
+  const date = parseDate(value);
+  if (!date) return "";
+  const d = date.toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+  const t = date.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return `${d} · ${t}`;
+}
+
 function formatDate(value) {
   const date = parseDate(value);
   if (!date) {
@@ -610,6 +619,7 @@ function buildInvoiceRecord(blueprint) {
     paymentLink: String(blueprint.paymentLink ?? ""),
     paymentLinkSentAt: String(blueprint.paymentLinkSentAt ?? ""),
     paymentMethod: String(blueprint.paymentMethod ?? ""),
+    paidAt: String(blueprint.paidAt ?? ""),
   };
 }
 
@@ -656,6 +666,7 @@ function invoiceFromCompletedRow(row) {
     paymentLink: String(notes.payment_link ?? ""),
     paymentLinkSentAt: String(notes.payment_link_sent_at ?? ""),
     paymentMethod: String(notes.payment_method ?? ""),
+    paidAt: String(notes.paid_at ?? notes.paidAt ?? ""),
   });
 }
 
@@ -933,6 +944,7 @@ function invoiceRowMarkup(invoice, isExpanded) {
           <div class="werkbon-meta-top">
             <strong class="werkbon-price">${escapeHtml(formatCurrency(invoice.summary.total))}</strong>
           ${statusBadgeMarkup(invoice.status, invoice.paymentLink)}
+          ${invoice.status === "paid" && invoice.paidAt ? `<span class="werkbon-paid-at">${escapeHtml(formatPaidAt(invoice.paidAt))}</span>` : ""}
           </div>
           <button
             class="request-toggle ${isExpanded ? "is-expanded" : ""}"

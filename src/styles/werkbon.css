@@ -194,6 +194,13 @@
     white-space: nowrap;
 }
 
+.werkbon-paid-at {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #15803d;
+    white-space: nowrap;
+}
+
 .werkbon-send-button {
     color: #1d4ed8;
     border-color: rgba(29, 78, 216, 0.16);
