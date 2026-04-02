@@ -281,8 +281,8 @@ body[data-theme="dark"] .request-card {
   border: 1px solid var(--e6e6e6);
   background: var(--fff);
   color: var(--666666);
-  width: 32px;
-  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
   border-radius: 8px;
   cursor: pointer;
   display: flex;

@@ -319,7 +319,7 @@ function emailCardsMarkup(inboxEmails, expandedEmailId, editingEmailId, vehicleC
                     : ""
                 }
 
-                <button class="icon-button" type="button" data-email-action="edit" data-email-id="${escapeHtml(emailId)}" aria-label="Edit email schedule">✎</button>
+                <button class="icon-button" type="button" data-email-action="edit" data-email-id="${escapeHtml(emailId)}" aria-label="Edit email schedule" style="gap: 8px;">✎ <span>Schedule</span></button>
                 ${!isEditing
                   ? `<button class="button danger" type="button" data-email-action="delete" data-email-id="${escapeHtml(emailId)}">Delete</button>`
                   : ""
@@ -387,13 +387,12 @@ export async function mountEmailsPage(rootElement) {
   const initialEmailId = String(initialSearchParams.get("emailId") ?? "").trim();
 
   const render = () => {
-    if (!inboxEmails.some((email) => String(email.id) === expandedEmailId)) {
-      expandedEmailId = inboxEmails[0] ? String(inboxEmails[0].id) : "";
-      editingEmailId = "";
-    }
-
     if (editingEmailId && !inboxEmails.some((email) => String(email.id) === editingEmailId)) {
       editingEmailId = "";
+    }
+    
+    if (expandedEmailId && !inboxEmails.some((email) => String(email.id) === expandedEmailId)) {
+      expandedEmailId = "";
     }
 
     listElement.innerHTML = emailCardsMarkup(inboxEmails, expandedEmailId, editingEmailId, vehicleCache);
@@ -582,10 +581,9 @@ export async function mountEmailsPage(rootElement) {
       }
     }
 
-    expandedEmailId = inboxEmails[0] ? String(inboxEmails[0].id) : "";
     expandedEmailId = initialEmailId && inboxEmails.some((email) => String(email.id) === initialEmailId)
       ? initialEmailId
-      : expandedEmailId;
+      : "";
 
     render();
   } catch (error) {

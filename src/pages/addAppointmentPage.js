@@ -13,17 +13,80 @@ import {
   scheduleTimeOptionsMarkup,
 } from "../utils/scheduleTimePicker.js";
 
-const SERVICE_OPTIONS = ["APK", "Banden", "Onderhoud", "Airco", "Overige", "Occasions", "Brakes"];
+const SERVICE_OPTIONS = ["APK", "Banden", "Onderhoud", "Airco", "Occasions", "Brakes"];
 
 const SERVICE_KEY_BY_LABEL = {
   apk: "apk",
   banden: "banden",
   onderhoud: "onderhoud",
   airco: "airco",
-  overige: "other",
   occasions: "occasions",
   brakes: "brakes",
 };
+
+const SERVICE_LABEL_BY_KEY = {
+  apk: "APK",
+  banden: "Banden",
+  onderhoud: "Onderhoud",
+  airco: "Airco",
+  occasions: "Occasions",
+  brakes: "Brakes",
+  other: "Overige",
+};
+
+const SERVICE_KEY_ALIASES = new Map([
+  ["apk", "apk"],
+  ["banden", "banden"],
+  ["tire", "banden"],
+  ["tires", "banden"],
+  ["airco", "airco"],
+  ["ac", "airco"],
+  ["occasion", "occasions"],
+  ["occasions", "occasions"],
+  ["onderhoud", "onderhoud"],
+  ["maintenance", "onderhoud"],
+  ["service", "onderhoud"],
+  ["brakes", "brakes"],
+  ["brake", "brakes"],
+  ["remmen", "brakes"],
+]);
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function normalizeServiceKey(token) {
+  return SERVICE_KEY_ALIASES.get(String(token ?? "").trim().toLowerCase()) ?? "other";
+}
+
+function splitServiceValues(service) {
+  const raw = String(service ?? "").trim();
+  if (!raw) {
+    return [];
+  }
+
+  const parts = raw
+    .split(raw.includes(",") ? /,/g : /\+|\/|&| and /gi)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return parts;
+}
+
+function serviceChipsMarkup(service) {
+  return splitServiceValues(service)
+    .map((item) => {
+      const key = normalizeServiceKey(item);
+      const label = SERVICE_LABEL_BY_KEY[key] ?? item;
+      return `<span class="service-chip service-chip-${key}">${escapeHtml(label)}</span>`;
+    })
+    .join("");
+}
 
 function toDateInputValue(date) {
   return date.toISOString().slice(0, 10);
@@ -161,11 +224,10 @@ export async function mountAddAppointmentPage(rootElement) {
           <span class="service-selector-label">Service</span>
           <div class="service-selector-options">
             ${SERVICE_OPTIONS.map((service, index) => {
-              const checked = index === 0 ? "checked" : "";
               const serviceKey = SERVICE_KEY_BY_LABEL[String(service).toLowerCase()] ?? "other";
               return `
                 <label class="service-option service-option-${serviceKey}">
-                  <input type="checkbox" name="services" value="${service}" ${checked} />
+                  <input type="checkbox" name="services" value="${service}" ${index === 0 ? "checked" : ""} />
                   <span class="service-option-ui">
                     <span class="service-option-check" aria-hidden="true">
                       <svg viewBox="0 0 16 16" fill="none">
@@ -177,6 +239,17 @@ export async function mountAddAppointmentPage(rootElement) {
                 </label>
               `;
             }).join("")}
+          </div>
+          <div class="manual-service-input-group">
+            <label class="manual-service-label">Or add custom service:</label>
+            <input 
+              type="text" 
+              id="serviceInput" 
+              class="service-input" 
+              placeholder="e.g., Remblokken, Wielen balanceren"
+              aria-label="Custom service input"
+            />
+            <div id="selectedServices" class="service-chips-display"></div>
           </div>
         </div>
 
@@ -227,8 +300,45 @@ export async function mountAddAppointmentPage(rootElement) {
   initDatePicker(defaultDate);
   initTimePicker(defaultTime);
 
+  const serviceInput = contentArea.querySelector("#serviceInput");
+  const selectedServicesDisplay = contentArea.querySelector("#selectedServices");
+  let customServices = [];
+
+  const updateServiceChipsDisplay = () => {
+    if (!selectedServicesDisplay) return;
+    selectedServicesDisplay.innerHTML = customServices.map((service, idx) => `
+      <span class="service-chip service-chip-other" data-custom-idx="${idx}">
+        ${escapeHtml(service)}
+        <button class="service-chip-remove" type="button" data-remove-idx="${idx}" aria-label="Remove service">×</button>
+      </span>
+    `).join("");
+  };
+
+  if (serviceInput instanceof HTMLInputElement) {
+    serviceInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const value = serviceInput.value.trim();
+        if (value && !customServices.includes(value)) {
+          customServices.push(value);
+          serviceInput.value = "";
+          updateServiceChipsDisplay();
+        }
+      }
+    });
+  }
+
   contentArea.addEventListener("click", (event) => {
     handleScheduleTimePickerInteraction(contentArea, event.target);
+
+    const removeBtn = event.target instanceof HTMLElement ? event.target.closest(".service-chip-remove") : null;
+    if (removeBtn instanceof HTMLElement) {
+      const idx = Number(removeBtn.dataset.removeIdx ?? -1);
+      if (idx >= 0) {
+        customServices.splice(idx, 1);
+        updateServiceChipsDisplay();
+      }
+    }
   });
 
   const setStatus = (message, tone = "") => {
@@ -441,18 +551,19 @@ export async function mountAddAppointmentPage(rootElement) {
       return;
     }
 
-    const formData = new FormData(manualForm);
-    const selectedServices = formData
-      .getAll("services")
-      .map((item) => String(item).trim())
+    const checkedCheckboxes = Array.from(contentArea.querySelectorAll("input[name='service']:checked"));
+    const checkedServices = checkedCheckboxes
+      .map((cb) => cb instanceof HTMLInputElement ? cb.value : "")
       .filter(Boolean);
+    const combinedServices = checkedServices.concat(customServices).filter(Boolean);
 
-    if (!selectedServices.length) {
-      setStatus("Select at least one service.", "warning");
-      showToast("Select at least one service.", "warning");
+    if (!combinedServices.length) {
+      setStatus("Enter at least one service.", "warning");
+      showToast("Enter at least one service.", "warning");
       return;
     }
 
+    const formData = new FormData(manualForm);
     const customerName = String(formData.get("customerName") ?? "").trim();
     const licensePlate = String(formData.get("licensePlate") ?? "").trim();
     const phone = String(formData.get("phone") ?? "").trim();
@@ -480,12 +591,17 @@ export async function mountAddAppointmentPage(rootElement) {
         garageId: manualGarageId,
         licensePlate,
         phone,
-        service: selectedServices.join(", "),
+        service: combinedServices.join(", "),
         message: `Name: ${customerName}\nMessage: Manual appointment created in dashboard.`,
         appointmentAt: `${date}T${time}`,
       });
 
       manualForm.reset();
+      customServices = [];
+      if (serviceInput instanceof HTMLInputElement) {
+        serviceInput.value = "";
+      }
+      updateServiceChipsDisplay();
 
       const resetHalf = nextHalfHour();
       initDatePicker(toDateInputValue(resetHalf));

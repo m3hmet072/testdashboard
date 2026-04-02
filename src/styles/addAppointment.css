@@ -105,6 +105,87 @@
   font-weight: 500;
 }
 
+.service-selector-quick-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.service-quick-btn {
+  font-size: 13px;
+  padding: 0.42rem 0.65rem;
+  min-height: 34px;
+  border-radius: 10px;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.service-quick-btn.service-option-apk {
+  background: var(--apk-background);
+  color: var(--apk);
+  border-color: color-mix(in srgb, var(--apk), transparent 80%);
+}
+
+.service-quick-btn.service-option-banden {
+  background: var(--banden-background);
+  color: var(--banden);
+  border-color: color-mix(in srgb, var(--banden), transparent 80%);
+}
+
+.service-quick-btn.service-option-onderhoud {
+  background: var(--onderhoud-background);
+  color: var(--onderhoud);
+  border-color: color-mix(in srgb, var(--onderhoud), transparent 80%);
+}
+
+.service-quick-btn.service-option-airco {
+  background: var(--airco-background);
+  color: var(--airco);
+  border-color: color-mix(in srgb, var(--airco), transparent 80%);
+}
+
+.service-quick-btn.service-option-occasions {
+  background: var(--occasion-background);
+  color: var(--occasion);
+  border-color: color-mix(in srgb, var(--occasion), transparent 80%);
+}
+
+.service-quick-btn.service-option-brakes {
+  background: var(--brakes-background);
+  color: var(--brakes);
+  border-color: color-mix(in srgb, var(--brakes), transparent 80%);
+}
+
+.service-input {
+  padding: 0.65rem 0.85rem;
+  border: 1px solid rgba(230, 230, 230, 0.92);
+  border-radius: 10px;
+  background: rgba(250, 250, 250, 0.62);
+  color: var(--333333);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.service-input:focus {
+  outline: none;
+  border-color: rgba(79, 109, 255, 0.55);
+  box-shadow: 0 0 0 4px rgba(79, 109, 255, 0.14);
+  background: var(--fff);
+}
+
+.service-input::placeholder {
+  color: var(--999999);
+}
+
+.service-chips-display {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  min-height: 28px;
+}
+
 .service-selector-options {
   display: flex;
 
