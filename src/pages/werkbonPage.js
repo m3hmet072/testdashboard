@@ -788,10 +788,6 @@ function summaryCardsMarkup(invoices) {
 }
 
 function invoiceExpandedActionsMarkup(invoice) {
-  const markPaidButton = invoice.status === "paid"
-    ? ""
-    : `<button class="button werkbon-paid-button" type="button" data-werkbon-action="mark-paid" data-werkbon-id="${escapeHtml(invoice.id)}">Mark as Paid</button>`;
-
   return `
     <div class="request-divider"></div>
     <div class="request-expanded werkbon-expanded">
@@ -800,8 +796,6 @@ function invoiceExpandedActionsMarkup(invoice) {
         <button class="button subtle" type="button" data-werkbon-action="edit" data-werkbon-id="${escapeHtml(invoice.id)}">Edit</button>
         <button class="button subtle werkbon-pdf-button" type="button" data-werkbon-action="pdf-actions" data-werkbon-id="${escapeHtml(invoice.id)}">📄 PDF ▾</button>
         <button class="button werkbon-betalen-button" type="button" data-werkbon-action="payment-actions" data-werkbon-id="${escapeHtml(invoice.id)}">💳 Betalen ▾</button>
-        <button class="button subtle werkbon-send-button" type="button" data-werkbon-action="send-customer" data-werkbon-id="${escapeHtml(invoice.id)}">Send to Customer</button>
-        ${markPaidButton}
         <button class="button danger" type="button" data-werkbon-action="delete" data-werkbon-id="${escapeHtml(invoice.id)}">Delete</button>
       </div>
     </div>

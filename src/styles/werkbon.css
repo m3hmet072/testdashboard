@@ -2482,6 +2482,7 @@ body[data-theme="dark"] .werkbon-input-affix input {
     .werkbon-create-shadow {
         width: 100vw;
         height: 100vh;
+        height: 100dvh;
     }
 
     .werkbon-create-shadow {
@@ -2492,7 +2493,9 @@ body[data-theme="dark"] .werkbon-input-affix input {
     .werkbon-create-panel {
         width: 100vw;
         height: 100vh;
+        height: 100dvh;
         max-height: 100vh;
+        max-height: 100dvh;
         border-radius: 0;
         margin: 0;
     }
@@ -2504,11 +2507,31 @@ body[data-theme="dark"] .werkbon-input-affix input {
         padding-right: 12px;
     }
 
+    .werkbon-create-header {
+        padding-top: max(12px, env(safe-area-inset-top));
+        padding-bottom: 10px;
+    }
+
+    .werkbon-create-header h2 {
+        font-size: 1.2rem;
+    }
+
     .werkbon-create-stepper {
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
         gap: 0.45rem;
+        padding: 0.65rem 12px;
+    }
+
+    .werkbon-create-step-separator {
+        flex: 0 0 12px;
+        min-width: 12px;
     }
 
     .werkbon-create-step {
+        flex: 0 0 auto;
         min-height: 36px;
         padding: 0.42rem 0.65rem;
     }
@@ -2536,13 +2559,27 @@ body[data-theme="dark"] .werkbon-input-affix input {
         position: sticky;
         bottom: 0;
         z-index: 5;
+        gap: 8px;
+        background: color-mix(in srgb, var(--fafafa) 84%, var(--fff));
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
         padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    }
+
+    .werkbon-create-content {
+        padding-bottom: calc(110px + env(safe-area-inset-bottom));
     }
 
     .werkbon-create-actions-left,
     .werkbon-create-actions-right {
         width: 100%;
         margin-left: 0;
+    }
+
+    .werkbon-create-actions-left,
+    .werkbon-create-actions-right {
+        display: grid;
+        grid-template-columns: 1fr;
     }
 
     .werkbon-create-actions .button {
@@ -2604,6 +2641,24 @@ body[data-theme="dark"] .werkbon-input-affix input {
     .werkbon-sidebar-actions .button {
         min-height: 44px;
         justify-content: center;
+    }
+}
+
+@media (max-width: 420px) {
+    .werkbon-create-stepper {
+        gap: 0.35rem;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .werkbon-create-step-separator {
+        display: none;
+    }
+
+    .werkbon-create-step {
+        min-height: 34px;
+        padding: 0.38rem 0.56rem;
+        font-size: 0.82rem;
     }
 }
 
