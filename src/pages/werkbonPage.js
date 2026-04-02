@@ -9,20 +9,17 @@ import { applyGarageBranding } from "../utils/branding.js";
 import { showConfirmDialog } from "../utils/confirmDialog.js";
 import { pageUrl } from "../utils/paths.js";
 import { generatePaymentLink } from "../services/mollieService.js";
+import { openActionPopup } from "../components/actionPopup.js";
 
 
 const STATUS_META = {
-  pending: {
-    label: "Openstaand",
-    className: "werkbon-status-openstaand",
-  },
   draft: {
     label: "Draft",
     className: "werkbon-status-draft",
   },
-  sent: {
-    label: "Sent",
-    className: "werkbon-status-sent",
+  link_sent: {
+    label: "Link verstuurd",
+    className: "werkbon-status-link-sent",
   },
   paid: {
     label: "Paid",
@@ -549,7 +546,39 @@ function formatLicensePlate(value) {
 
 function normalizeStatus(value) {
   const normalized = String(value ?? "draft").trim().toLowerCase();
-  return STATUS_META[normalized] ? normalized : "draft";
+  if (["paid", "betaald"].includes(normalized)) {
+    return "paid";
+  }
+
+  if (["link_sent", "link-sent", "link sent", "linkverstuurd", "link_verstuurd", "link verstuurd", "sent", "send", "verzonden"].includes(normalized)) {
+    return "link_sent";
+  }
+
+  if (["draft", "pending", "openstaand"].includes(normalized)) {
+    return "draft";
+  }
+
+  return "draft";
+}
+
+function resolveInvoiceStatus({ status, paymentLink, paymentLinkSentAt, paidAt, paymentStatus } = {}) {
+  const normalizedStatus = normalizeStatus(status);
+  if (normalizedStatus === "paid") {
+    return "paid";
+  }
+
+  const normalizedPaymentStatus = String(paymentStatus ?? "").trim().toLowerCase();
+  const hasPaidAt = Boolean(String(paidAt ?? "").trim());
+  if (normalizedPaymentStatus === "paid" || hasPaidAt) {
+    return "paid";
+  }
+
+  const hasPaymentLink = Boolean(String(paymentLink ?? "").trim() || String(paymentLinkSentAt ?? "").trim());
+  if (normalizedStatus === "link_sent" || hasPaymentLink) {
+    return "link_sent";
+  }
+
+  return "draft";
 }
 
 function parseCompletionNotes(value) {
@@ -604,7 +633,13 @@ function buildInvoiceRecord(blueprint) {
     carModel: String(blueprint.carModel ?? "Unknown vehicle"),
     serviceTypes: Array.isArray(blueprint.serviceTypes) ? blueprint.serviceTypes.map(String) : ["Other"],
     completedAt: blueprint.completedAt,
-    status: normalizeStatus(blueprint.status),
+    status: resolveInvoiceStatus({
+      status: blueprint.status,
+      paymentLink: blueprint.paymentLink,
+      paymentLinkSentAt: blueprint.paymentLinkSentAt,
+      paidAt: blueprint.paidAt,
+      paymentStatus: blueprint.paymentStatus,
+    }),
     parts,
     labour: {
       hours: labourHours,
@@ -631,20 +666,13 @@ function invoiceFromCompletedRow(row) {
   const labour = notes.labour && typeof notes.labour === "object" ? notes.labour : {};
   const parts = Array.isArray(notes.parts) ? notes.parts : [{ name: "Service", quantity: 1, price: 0 }];
 
-  const derivedStatus = (() => {
-    const explicit = String(notes.status ?? "").trim().toLowerCase();
-    if (explicit) {
-      return explicit;
-    }
-
-    const paymentStatus = String(notes.payment_status ?? "").trim().toLowerCase();
-    const hasPaidAt = Boolean(String(notes.paid_at ?? notes.paidAt ?? "").trim());
-    if (paymentStatus === "paid" || hasPaidAt) {
-      return "paid";
-    }
-
-    return "draft";
-  })();
+  const derivedStatus = resolveInvoiceStatus({
+    status: notes.status,
+    paymentLink: notes.payment_link,
+    paymentLinkSentAt: notes.payment_link_sent_at,
+    paidAt: notes.paid_at ?? notes.paidAt,
+    paymentStatus: notes.payment_status,
+  });
 
   return buildInvoiceRecord({
     id: String(row.id ?? ""),
@@ -706,13 +734,7 @@ function prefetchWerkbonDetailDocument() {
 }
 
 function statusBadgeMarkup(status, paymentLink = "") {
-  const normalized = normalizeStatus(status);
-  if (normalized !== "paid" && paymentLink) {
-    return `<span class="status-chip werkbon-status-link-sent">Link verstuurd</span>`;
-  }
-  if (normalized === "draft" && !paymentLink) {
-    return `<span class="status-chip werkbon-status-openstaand">Openstaand</span>`;
-  }
+  const normalized = resolveInvoiceStatus({ status, paymentLink });
   const meta = STATUS_META[normalized] ?? STATUS_META.draft;
   return `<span class="status-chip ${meta.className}">${meta.label}</span>`;
 }
@@ -723,7 +745,7 @@ function summaryCardsMarkup(invoices) {
   const outstandingTotal = invoices
     .filter((invoice) => invoice.status !== "paid")
     .reduce((sum, invoice) => sum + invoice.summary.total, 0);
-  const sentCount = invoices.filter((invoice) => invoice.status === "sent").length;
+  const sentCount = invoices.filter((invoice) => invoice.status === "link_sent").length;
   const draftCount = invoices.filter((invoice) => invoice.status === "draft").length;
   const paidTotal = invoices
     .filter((invoice) => invoice.status === "paid")
@@ -743,7 +765,7 @@ function summaryCardsMarkup(invoices) {
     {
       label: "In payment flow",
       value: String(sentCount),
-      note: "Sent via SMS or WhatsApp",
+      note: "Werkbonnen met verstuurde link",
     },
     {
       label: "Paid total",
@@ -776,6 +798,8 @@ function invoiceExpandedActionsMarkup(invoice) {
       <div class="request-actions werkbon-bottom-actions">
         <button class="button subtle" type="button" data-werkbon-action="view" data-werkbon-id="${escapeHtml(invoice.id)}">View Werkbon</button>
         <button class="button subtle" type="button" data-werkbon-action="edit" data-werkbon-id="${escapeHtml(invoice.id)}">Edit</button>
+        <button class="button subtle werkbon-pdf-button" type="button" data-werkbon-action="pdf-actions" data-werkbon-id="${escapeHtml(invoice.id)}">📄 PDF ▾</button>
+        <button class="button werkbon-betalen-button" type="button" data-werkbon-action="payment-actions" data-werkbon-id="${escapeHtml(invoice.id)}">💳 Betalen ▾</button>
         <button class="button subtle werkbon-send-button" type="button" data-werkbon-action="send-customer" data-werkbon-id="${escapeHtml(invoice.id)}">Send to Customer</button>
         ${markPaidButton}
         <button class="button danger" type="button" data-werkbon-action="delete" data-werkbon-id="${escapeHtml(invoice.id)}">Delete</button>
@@ -838,7 +862,7 @@ function werkbonModalMarkup(invoice, isEditing) {
                       <span>Status</span>
                       <select data-werkbon-edit-status>
                         <option value="draft" ${invoice.status === "draft" ? "selected" : ""}>Draft</option>
-                        <option value="sent" ${invoice.status === "sent" ? "selected" : ""}>Sent</option>
+                        <option value="link_sent" ${invoice.status === "link_sent" ? "selected" : ""}>Link verstuurd</option>
                         <option value="paid" ${invoice.status === "paid" ? "selected" : ""}>Paid</option>
                       </select>
                     </label>
@@ -1222,15 +1246,17 @@ export async function mountWerkbonPage(rootElement) {
         <label class="werkbon-filter-field werkbon-status-field">
           <select id="werkbonStatusFilter" aria-label="Filter werkbon by status">
             <option value="all">All statuses</option>
-            <option value="pending">Openstaand</option>
             <option value="draft">Draft</option>
-            <option value="sent">Sent</option>
+            <option value="link_sent">Link verstuurd</option>
             <option value="paid">Paid</option>
           </select>
         </label>
 
         <div class="werkbon-create-trigger-wrap">
-          <button id="werkbonCreateTrigger" class="button" type="button">＋ Werkbon Maken</button>
+          <button id="werkbonCreateTrigger" class="button" type="button"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M12.001 5V19.002" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M19.002 12.0039H5" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg> Werkbon Maken</button>
         </div>
       </div>
 
@@ -2026,7 +2052,12 @@ export async function mountWerkbonPage(rootElement) {
       customer_phone: String(row?.customer_phone ?? "").trim(),
       factuurnummer: String(row?.invoice_number ?? "").trim(),
       total: Number.isFinite(totalAmount) && totalAmount > 0 ? totalAmount : invoice.summary.total,
-      status: String(row?.invoice_status ?? invoice.status ?? "draft"),
+      status: resolveInvoiceStatus({
+        status: row?.invoice_status ?? invoice.status ?? "draft",
+        paymentLink: row?.payment_link ?? invoice.paymentLink,
+        paymentLinkSentAt: row?.payment_link_sent_at ?? invoice.paymentLinkSentAt,
+        paidAt: invoice.paidAt,
+      }),
       payment_link: String(row?.payment_link ?? "").trim(),
       payment_link_sent_at: String(row?.payment_link_sent_at ?? "").trim(),
       payment_method: String(row?.payment_method ?? "").trim(),
@@ -2047,9 +2078,9 @@ export async function mountWerkbonPage(rootElement) {
     }
 
     await patchCompletedAppointmentNotes(payload.invoice, {
-      status: "sent",
+      status: "link_sent",
     });
-    applyInvoiceStatusLocally(payload.invoice.id, "sent");
+    applyInvoiceStatusLocally(payload.invoice.id, "link_sent");
     showToast("Factuur verstuurd per e-mail ✓", "success");
     return true;
   };
@@ -2118,7 +2149,7 @@ export async function mountWerkbonPage(rootElement) {
     if (paymentLink) {
       try {
         await patchCompletedAppointmentNotes(payload.invoice, {
-          status: payload.invoice.status !== "paid" ? "sent" : payload.invoice.status,
+          status: payload.invoice.status !== "paid" ? "link_sent" : payload.invoice.status,
           payment_link: paymentLink,
           payment_link_sent_at: new Date().toISOString(),
           payment_method: "mollie",
@@ -2128,7 +2159,7 @@ export async function mountWerkbonPage(rootElement) {
         if (idx !== -1) {
           invoices[idx] = {
             ...invoices[idx],
-            status: invoices[idx].status !== "paid" ? "sent" : invoices[idx].status,
+            status: invoices[idx].status !== "paid" ? "link_sent" : invoices[idx].status,
             paymentLink,
             paymentLinkSentAt: now,
             paymentMethod: "mollie",
@@ -2138,11 +2169,130 @@ export async function mountWerkbonPage(rootElement) {
         // Non-critical — payment link was still sent via WhatsApp
       }
     } else {
-      applyInvoiceStatusLocally(payload.invoice.id, "sent");
+      applyInvoiceStatusLocally(payload.invoice.id, "link_sent");
     }
 
     showToast("WhatsApp bericht geopend ✓", "success");
     return true;
+  };
+
+  const openPdfActionsPopup = async (button, invoiceId) => {
+    const payload = await fetchSendPayload(invoiceId);
+    const hasEmail = Boolean(payload.customer_email);
+    const hasPhone = Boolean(formatWhatsappPhone(payload.customer_phone));
+
+    return openActionPopup({
+      triggerButton: button,
+      title: "📄 PDF Acties",
+      options: [
+        {
+          id: "download",
+          icon: "⬇️",
+          title: "Downloaden",
+          description: "Sla de factuur op als PDF",
+          onSelect: async (controls) => {
+            const popupOpened = openPrintWindow(payload.invoice);
+            controls.forceClose();
+            showToast(popupOpened ? "PDF wordt gedownload ✓" : "Sta pop-ups toe om PDF te downloaden", popupOpened ? "success" : "error");
+          },
+        },
+        {
+          id: "email",
+          icon: "📧",
+          title: "Stuur via E-mail",
+          description: hasEmail ? "Verstuur naar klant e-mail" : "⚠️ Geen e-mailadres bekend. Voeg een e-mailadres toe aan deze werkbon.",
+          disabled: !hasEmail,
+          onSelect: async (controls, optionId) => {
+            controls.setLoading(optionId, true);
+            const success = await sendViaEmail(payload);
+            controls.setLoading(optionId, false);
+            if (success) {
+              controls.forceClose();
+              render();
+            }
+          },
+        },
+        {
+          id: "whatsapp",
+          icon: "💬",
+          title: "Stuur via WhatsApp",
+          description: hasPhone ? "Deel de factuur via WhatsApp" : "⚠️ Geen telefoonnummer bekend. Voeg een telefoonnummer toe.",
+          disabled: !hasPhone,
+          onSelect: async (controls, optionId) => {
+            controls.setLoading(optionId, true);
+            const success = await sendViaWhatsapp(payload);
+            controls.setLoading(optionId, false);
+            if (success) {
+              controls.forceClose();
+              render();
+            }
+          },
+        },
+      ],
+    });
+  };
+
+  const openPaymentActionsPopup = async (button, invoiceId) => {
+    const payload = await fetchSendPayload(invoiceId);
+    const invoice = payload.invoice;
+    const hasPhone = Boolean(formatWhatsappPhone(payload.customer_phone));
+    const paymentMode = String((garageSettings || authState.activeGarage)?.mollieMethod || "none");
+    const hasMollie = paymentMode !== "none";
+
+    return openActionPopup({
+      triggerButton: button,
+      title: "💳 Betaalmethode",
+      subtitle: `Totaal te betalen: €${formatWhatsappInvoiceTotal(payload.total)}`,
+      options: [
+        {
+          id: "cash",
+          icon: "💵",
+          title: "Contant",
+          description: "Registreer contante betaling",
+          onSelect: async (controls) => {
+            controls.setBodyContent(`
+              <div class="action-popup-confirm">
+                <p class="action-popup-confirm-title">Bevestig contante betaling</p>
+                <p class="action-popup-confirm-subtitle">€${escapeHtml(formatWhatsappInvoiceTotal(payload.total))} ontvangen?</p>
+                <div class="action-popup-confirm-actions">
+                  <button type="button" class="button subtle" data-popup-cancel>Annuleren</button>
+                  <button type="button" class="button" data-popup-confirm>✓ Bevestigen</button>
+                </div>
+              </div>
+            `, (root) => {
+              const cancel = root.querySelector("[data-popup-cancel]");
+              const confirm = root.querySelector("[data-popup-confirm]");
+              cancel?.addEventListener("click", () => controls.forceClose());
+              confirm?.addEventListener("click", async () => {
+                await markInvoicePaid(invoice.id, button);
+                controls.forceClose();
+                render();
+                showToast("Contante betaling geregistreerd ✓", "success");
+              });
+            });
+          },
+        },
+        {
+          id: "mollie_whatsapp",
+          icon: "💬",
+          title: "Betaallink via WhatsApp",
+          description: !hasMollie
+            ? "⚠️ Geen Mollie account verbonden. Ga naar Instellingen → Betalingen."
+            : (!hasPhone ? "⚠️ Geen telefoonnummer bekend. Voeg een telefoonnummer toe." : "Stuur iDEAL link naar klant"),
+          disabled: !hasMollie || !hasPhone,
+          onSelect: async (controls, optionId) => {
+            controls.setLoading(optionId, true);
+            const success = await sendViaWhatsapp(payload);
+            controls.setLoading(optionId, false);
+            if (success) {
+              controls.forceClose();
+              render();
+              showToast("Betaallink verstuurd via WhatsApp ✓", "success");
+            }
+          },
+        },
+      ],
+    });
   };
 
   const openSendDropdown = (button, payload) => {
@@ -2231,7 +2381,7 @@ export async function mountWerkbonPage(rootElement) {
 
     updateInvoice(invoiceId, (currentInvoice) => ({
       ...currentInvoice,
-      status: "sent",
+      status: "link_sent",
     }));
     setNotice(`Werkbon sent to customer via ${channelLabel}.`);
     openWerkbonModal(invoiceId, false);
@@ -2409,6 +2559,34 @@ export async function mountWerkbonPage(rootElement) {
       return;
     }
 
+    if (action === "pdf-actions") {
+      if (!(actionButton instanceof HTMLButtonElement)) {
+        return;
+      }
+      const stopLoading = setButtonLoading(actionButton, "Laden...");
+      try {
+        await openPdfActionsPopup(actionButton, invoiceId);
+      } catch {
+        showToast("Er ging iets mis", "error");
+      }
+      stopLoading();
+      return;
+    }
+
+    if (action === "payment-actions") {
+      if (!(actionButton instanceof HTMLButtonElement)) {
+        return;
+      }
+      const stopLoading = setButtonLoading(actionButton, "Laden...");
+      try {
+        await openPaymentActionsPopup(actionButton, invoiceId);
+      } catch {
+        showToast("Er ging iets mis", "error");
+      }
+      stopLoading();
+      return;
+    }
+
     if (action === "send-customer") {
       if (!(actionButton instanceof HTMLButtonElement)) {
         return;
@@ -2474,7 +2652,7 @@ export async function mountWerkbonPage(rootElement) {
       .filter((invoice) => {
         const haystack = [invoice.licensePlate, invoice.customerName, invoice.carModel].join(" ").toLowerCase();
         const matchesSearch = !searchTerm || haystack.includes(searchTerm);
-        const matchesStatus = selectedStatus === "all" || invoice.status === selectedStatus;
+        const matchesStatus = selectedStatus === "all" || resolveInvoiceStatus(invoice) === selectedStatus;
         return matchesSearch && matchesStatus;
       });
 
@@ -2975,3 +3153,6 @@ export async function mountWerkbonPage(rootElement) {
     renderCreateModalDom({ forceMount: true, refreshContent: true });
   }
 }
+
+
+
