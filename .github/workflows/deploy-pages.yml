@@ -36,12 +36,17 @@ jobs:
         run: npm ci
 
       - name: Build site
-        run: npm run build
+        run: |
+          npm run build
+          if [ ! -d "docs" ]; then
+            echo "ERROR: docs directory was not created after build"
+            exit 1
+          fi
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: docs
 
   deploy:
     environment:
