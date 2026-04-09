@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  base: "/testdashboard/",
+  base: "/",
   build: {
     outDir: "docs", // <-- add this line
     rollupOptions: {

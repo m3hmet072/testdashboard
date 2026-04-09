@@ -1,10 +1,5 @@
-import "../styles/base.css";
+import "../utils/errorHandler.js";
 import "../styles/theme.css";
 import "../styles/request-board.css";
 import "../styles/werkbon.css";
-import { mountWerkbonDetailPage } from "../pages/werkbonDetailPage.js";
-import { initializeTheme } from "../utils/theme.js";
-
-const root = document.querySelector("#app");
-initializeTheme();
-mountWerkbonDetailPage(root);
+import "../pages/werkbonDetailPage.js";

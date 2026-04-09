@@ -1,49 +1,38 @@
-/* View Werkbon button style */
 .view-werkbon {
-  background: #e3f2fd;
-  color: #1976d2;
-  border: 1px solid #90caf9;
+    background: #e3f2fd;
+    color: #1976d2;
+    border: 1px solid #90caf9
 }
 
 .view-werkbon:hover {
-  background: #bbdefb;
-  color: #0d47a1;
-  border: 1px solid #64b5f6;
-}
-/* Completed page specific styles */
-/* Primarily uses request-board component and shared styles */
-
-.completed-board {
-  padding: 0.9rem;
-}
-.time-done-box{
-  display: flex;
-  align-items: center;
-  gap: 8px;
+    background: #bbdefb;
+    color: #0d47a1;
+    border: 1px solid #64b5f6
 }
 
-/* ─── TABLET ─── */
+
+
+.time-done-box {
+    display: flex;
+    align-items: center;
+    gap: 8px
+}
+
 @media (max-width: 1024px) {
-  .completed-board {
-    padding: 0.65rem;
-  }
+
 }
 
-/* ─── MOBILE ─── */
 @media (max-width: 768px) {
-  .completed-board {
-    padding: 0;
-  }
+  
 
-  .time-done-box {
-    flex-wrap: wrap;
-    gap: 6px;
-  }
+    .time-done-box {
+        flex-wrap: wrap;
+        gap: 6px
+    }
 }
 
-/* ─── SMALL MOBILE ─── */
 @media (max-width: 375px) {
-  .time-done-box {
-    width: 100%;
-  }
+    .time-done-box {
+        width: 100%
+    }
 }

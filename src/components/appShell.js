@@ -1,6 +1,7 @@
 import { createNavbar } from "./navbar.js";
 import { createSidebar, setSidebarEmailUnreadCount } from "./sidebar.js";
 import { initializeGlobalSearch } from "./search.js";
+import { summarizeEmailInbox } from "../services/emailService.js";
 
 const PREFETCHED_DOCUMENTS_KEY = "garage-dashboard.prefetched-documents";
 const PREFETCH_DOCUMENTS = [
@@ -111,6 +112,25 @@ export function createAppShell({
   const setUnreadEmailCount = (count) => {
     setSidebarEmailUnreadCount(sidebar, count);
   };
+
+  // Auto-fetch and update email count on all pages if unreadEmailCount was not explicitly set
+  if (unreadEmailCount === 0 && garage?.id) {
+    (async () => {
+      try {
+        const summary = await summarizeEmailInbox({
+          garageIds: isAdmin ? null : [garage.id],
+        });
+        if (summary && typeof summary.unread === "number") {
+          setUnreadEmailCount(summary.unread);
+        }
+      } catch (error) {
+        // Silently fail - email badge update is not critical
+        console.debug("Failed to update email badge:", error);
+      }
+    })();
+  } else if (unreadEmailCount > 0) {
+    setUnreadEmailCount(unreadEmailCount);
+  }
 
   return { shell, contentArea, setUnreadEmailCount };
 }

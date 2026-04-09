@@ -1,0 +1,786 @@
+/* ==========================================================================
+   requestCard component
+   All styles for the expandable appointment/booking card, date/time pickers,
+   calendar picker, and the confirm dialog.
+   Used across: bookings, completed, calendar, werkbon, addAppointment.
+   JS counterpart: src/components/requestCard.js
+   ========================================================================== */
+
+/* ---------- Fast-appointment dot (no license plate indicator) ---------- */
+
+.fast-appt-dot {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: inline-block;
+    align-self: flex-start;
+    margin-top: 4px
+}
+
+/* ---------- Card shell ---------- */
+
+.request-card {
+    border: 1px solid var(--e6e6e6);
+    border-radius: 16px;
+    background: #fafafa;
+    padding: 16px;
+    height: fit-content;
+    display: grid;
+    gap: 20px;
+    cursor: pointer;
+    transition: border-color .12s ease, background-color .12s ease, box-shadow .12s ease
+}
+
+:root[data-theme=dark] .request-card,
+body[data-theme=dark] .request-card {
+    background: #262626
+}
+
+.request-card:hover {
+    border-color: var(--cccccc)
+}
+
+.request-card:focus-visible {
+    outline: 2px solid rgba(var(--brand-primary-rgb), .28);
+    outline-offset: 2px
+}
+
+.request-divider {
+    width: 100%;
+    height: 1px;
+    border-top: 1px dashed var(--e6e6e6);
+    margin: .58rem 0;
+    box-sizing: border-box
+}
+
+/* ---------- Card head ---------- */
+
+.request-card-head {
+    display: flex;
+    justify-content: space-between;
+    gap: .7rem
+}
+
+.request-main {
+    min-width: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 20px
+}
+
+.request-info {
+    display: grid;
+    gap: 8px;
+    min-width: 0
+}
+
+.request-name {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    color: var(--333333);
+    justify-content: start;
+    gap: 8px
+}
+
+.request-name svg {
+    width: 20px;
+    height: 20px;
+    color: var(--666666)
+}
+
+.request-vehicle svg {
+    width: 20px;
+    height: 20px
+}
+
+.request-vehicle {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    color: var(--666666);
+    justify-content: start;
+    gap: 8px
+}
+
+.request-meta {
+    display: flex;
+    align-items: end;
+    flex-direction: column;
+    gap: 8px
+}
+
+.request-time {
+    color: var(--333333);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    white-space: nowrap;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    text-align: center;
+    gap: 8px;
+    font-weight: 500
+}
+
+/* ---------- Toggle button / icon button ---------- */
+
+.request-toggle,
+.icon-button {
+    border: 1px solid var(--e6e6e6);
+    background: var(--fff);
+    color: var(--666666);
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center
+}
+
+.request-toggle svg {
+    width: .95rem;
+    height: .95rem;
+    transition: transform .15s ease
+}
+
+.request-toggle.is-expanded svg {
+    transform: rotate(180deg)
+}
+
+.request-toggle:hover,
+.icon-button:hover {
+    border-color: var(--cccccc);
+    color: var(--151618)
+}
+
+/* ---------- Expanded content ---------- */
+
+.request-expanded {
+    border-top: 1px dashed var(--line);
+    display: grid;
+    gap: 20px;
+    position: relative;
+    z-index: 1
+}
+
+.request-expanded-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .52rem
+}
+
+.request-contact-box,
+.request-message-box {
+    border: 1px dashed var(--e6e6e6);
+    border-radius: 12px;
+    background: var(--fff);
+    min-height: 56px;
+    height: fit-content;
+    padding: .52rem .6rem;
+    color: var(--666666);
+    display: grid;
+    gap: 0
+}
+
+.request-box-label {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    font-size: .72rem;
+    font-weight: 500;
+    color: var(--666666);
+    padding-bottom: .38rem
+}
+
+.request-box-label svg,
+.request-box-label img {
+    width: 32px;
+    height: 33px;
+    flex: none;
+    object-fit: contain
+}
+
+.request-box-divider {
+    width: 100%;
+    height: 1px;
+    border-top: 1px dashed var(--e6e6e6);
+    margin-bottom: .38rem
+}
+
+.request-contact-box span,
+.request-message-box span {
+    font-size: 14px;
+    line-height: 1.45;
+    word-break: break-word
+}
+
+/* ---------- Card actions row ---------- */
+
+.request-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: .42rem;
+    row-gap: .58rem;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 2
+}
+
+.request-edit-schedule {
+    margin-right: auto;
+    display: inline-flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: .42rem;
+    position: relative;
+    z-index: 3
+}
+
+.request-edit-schedule .button.subtle {
+    padding: .42rem .66rem;
+    border-radius: 8px;
+    position: relative;
+    z-index: 4
+}
+
+.request-edit-field {
+    display: grid;
+    gap: .22rem;
+    color: var(--666666);
+    font-size: .74rem;
+    font-weight: 600
+}
+
+.request-edit-field span {
+    line-height: 1
+}
+
+.request-edit-field input {
+    border: 1px solid var(--e6e6e6);
+    border-radius: 8px;
+    background: var(--f5f8ff);
+    color: var(--151618);
+    font: inherit;
+    font-size: .78rem;
+    padding: .38rem .48rem;
+    min-width: 108px;
+    position: relative;
+    z-index: 4
+}
+
+.request-edit-field input:focus {
+    outline: 2px solid rgba(var(--brand-primary-rgb), .25);
+    border-color: rgba(var(--brand-primary-rgb), .45)
+}
+
+/* ---------- Date / time pickers ---------- */
+
+.request-date-picker,
+.request-time-picker {
+    position: relative;
+    min-width: 108px;
+    z-index: 6
+}
+
+.request-date-picker.is-open,
+.request-time-picker.is-open {
+    z-index: 100000
+}
+
+.request-date-trigger,
+.request-time-trigger {
+    width: 100%;
+    border: 1px dashed var(--e6e6e6);
+    border-radius: 8px;
+    background: var(--fff);
+    color: var(--151618);
+    font: inherit;
+    font-size: .84rem;
+    padding: 6px 12px;
+    min-width: 108px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .3rem;
+    cursor: pointer
+}
+
+.request-date-trigger svg,
+.request-time-trigger svg {
+    width: .9rem;
+    height: .9rem;
+    transition: transform .15s ease;
+    flex: none
+}
+
+.request-date-picker.is-open .request-date-trigger,
+.request-time-picker.is-open .request-time-trigger {
+    border-color: color-mix(in srgb, var(--333333), transparent 65%)
+}
+
+.request-date-picker.is-open .request-date-trigger svg,
+.request-time-picker.is-open .request-time-trigger svg {
+    transform: rotate(180deg)
+}
+
+.request-date-options,
+.request-time-options {
+    display: none;
+    position: absolute;
+    top: calc(100% + .3rem);
+    left: 0;
+    min-width: 100%;
+    max-height: 230px;
+    overflow-y: auto;
+    border: 1px solid var(--e6e6e6);
+    border-radius: 10px;
+    background: var(--fff);
+    padding: .3rem;
+    z-index: 99999
+}
+
+.request-date-options {
+    min-width: 260px;
+    max-height: none;
+    padding: .6rem;
+    gap: 0
+}
+
+.request-time-options {
+    min-width: 175px;
+    max-height: 280px
+}
+
+.request-date-picker.is-open .request-date-options {
+    display: block
+}
+
+.request-time-picker.is-open .request-time-options {
+    display: flex;
+    flex-direction: column;
+    gap: .12rem
+}
+
+[data-schedule-time-label].is-editing {
+    outline: 1px dashed color-mix(in srgb, var(--333333), transparent 65%);
+    border-radius: 4px;
+    padding: 0 2px;
+    cursor: text
+}
+
+.request-time-option {
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--151618);
+    font: inherit;
+    font-size: .93rem;
+    text-align: left;
+    padding: .6rem .9rem;
+    cursor: pointer;
+    line-height: 1.3;
+    white-space: nowrap
+}
+
+.request-time-option:hover {
+    background: var(--f5f8ff)
+}
+
+.request-time-option.is-selected {
+    background: rgba(var(--brand-primary-rgb), .12);
+    color: var(--0082fb);
+    font-weight: 600
+}
+
+/* ---------- Schedule calendar (mini) ---------- */
+
+.schedule-cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .3rem;
+    margin-bottom: .45rem
+}
+
+.schedule-cal-title {
+    flex: 1;
+    text-align: center;
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--151618)
+}
+
+.schedule-cal-nav {
+    border: 1px solid var(--e6e6e6);
+    border-radius: 6px;
+    background: var(--f5f8ff);
+    color: var(--666666);
+    width: 1.65rem;
+    height: 1.65rem;
+    display: inline-grid;
+    place-items: center;
+    cursor: pointer;
+    padding: 0;
+    flex: none
+}
+
+.schedule-cal-nav:hover:not(:disabled) {
+    border-color: var(--cccccc);
+    color: var(--151618)
+}
+
+.schedule-cal-nav:disabled {
+    opacity: .35;
+    cursor: not-allowed
+}
+
+.schedule-cal-nav svg {
+    width: .7rem;
+    height: .7rem
+}
+
+.schedule-cal-weekdays,
+.schedule-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr)
+}
+
+.schedule-cal-weekdays {
+    margin-bottom: .15rem
+}
+
+.schedule-cal-weekday {
+    font-size: .68rem;
+    font-weight: 600;
+    color: var(--666666);
+    text-align: center;
+    padding: .2rem 0
+}
+
+.schedule-cal-day {
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--151618);
+    font: inherit;
+    font-size: .9rem;
+    text-align: center;
+    padding: .5rem 0;
+    cursor: pointer;
+    line-height: 1.2;
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1
+}
+
+.schedule-cal-day:hover:not(:disabled) {
+    background: var(--f5f8ff)
+}
+
+.schedule-cal-day.is-today {
+    font-weight: 700;
+    color: var(--0082fb)
+}
+
+.schedule-cal-day.is-selected {
+    background: rgba(var(--brand-primary-rgb), .15);
+    color: var(--0082fb);
+    font-weight: 700
+}
+
+.schedule-cal-day.is-disabled {
+    opacity: .3;
+    cursor: not-allowed
+}
+
+.schedule-cal-empty {
+    pointer-events: none
+}
+
+/* ---------- Confirm dialog ---------- */
+
+.confirm-dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #0000001a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeInOverlay .2s cubic-bezier(.4, 0, .2, 1);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px)
+}
+
+@keyframes fadeInOverlay {
+    0% {
+        opacity: 0;
+        -webkit-backdrop-filter: blur(0px);
+        backdrop-filter: blur(0px)
+    }
+
+    to {
+        opacity: 1;
+        -webkit-backdrop-filter: blur(4px);
+        backdrop-filter: blur(4px)
+    }
+}
+
+.confirm-dialog {
+    background: #fff;
+    border-radius: 14px;
+    max-width: 24rem;
+    width: calc(100% - 32px);
+    overflow: hidden;
+    animation: slideUpDialog .3s cubic-bezier(.34, 1.56, .64, 1);
+    border: 1px solid #d0d0d0;
+    display: flex;
+    flex-direction: column
+}
+
+.confirm-dialog-content {
+    padding: 16px;
+    background: var(--fff);
+    gap: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    border-bottom: 1px solid rgb(10 10 10 / .1)
+}
+
+.confirm-dialog-title {
+    font-size: 16px;
+    font-weight: 500;
+    margin: 0;
+    color: var(--333333);
+    letter-spacing: -.5px;
+    line-height: 1.3
+}
+
+.confirm-dialog-content p {
+    margin: 0;
+    color: var(--737373);
+    font-size: 14px;
+    line-height: 1.3;
+    font-weight: 400
+}
+
+.confirm-dialog-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    padding: 16px;
+    background: var(--alert-background);
+    border-top: 1px solid rgba(255, 255, 255, .08)
+}
+
+.confirm-dialog-actions .button {
+    flex: 0 1 auto;
+    padding: 5px 8px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all .2s cubic-bezier(.4, 0, .2, 1);
+    text-align: center;
+    outline: none
+}
+
+.confirm-dialog-actions .button[data-confirm-action=cancel] {
+    background: var(--fff);
+    color: var(--171717);
+    border: 1px solid var(--e6e6e6);
+    font-weight: 500
+}
+
+.confirm-dialog-actions .button[data-confirm-action=cancel]:hover {
+    background: var(--fafafa);
+    border-color: var(--cccccc)
+}
+
+.confirm-dialog-actions .button.danger {
+    background: var(--alert-continue-btn);
+    color: var(--fafafa);
+    border: 1px solid #e6e6e628;
+    font-weight: 500
+}
+
+.confirm-dialog-actions .button.danger:hover {
+    background: #171717f3
+}
+
+@media (max-width: 480px) {
+    .confirm-dialog {
+        width: calc(100% - 24px);
+        padding: 24px 20px
+    }
+
+    .confirm-dialog-actions {
+        flex-direction: column-reverse;
+        gap: 10px
+    }
+
+    .confirm-dialog-actions .button {
+        width: 100%
+    }
+}
+
+/* ---------- Responsive: card layout ---------- */
+
+@media (max-width: 980px) {
+    .request-expanded-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .request-edit-schedule {
+        width: 100%;
+        margin-right: 0
+    }
+
+    .request-date-picker,
+    .request-time-picker,
+    .request-date-trigger,
+    .request-time-trigger {
+        width: 100%
+    }
+}
+
+@media (max-width: 1024px) {
+    .request-card {
+        padding: 14px;
+        gap: 14px
+    }
+}
+
+@media (max-width: 768px) {
+    .request-card {
+        border-radius: 14px;
+        padding: 12px;
+        gap: 12px
+    }
+
+    .request-card-head {
+        flex-direction: row;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px
+    }
+
+    .request-main {
+        width: 100%;
+        gap: 10px;
+        flex-direction: column
+    }
+
+    .request-meta {
+        width: fit-content;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center
+    }
+
+    .request-expanded-grid {
+        grid-template-columns: 1fr
+    }
+
+    .request-actions {
+        width: 100%;
+        justify-content: flex-end;
+        gap: 8px
+    }
+
+    .request-actions > .button,
+    .request-actions > .icon-button {
+        width: auto;
+        flex: 0 0 auto;
+
+    }
+
+    .request-edit-schedule .button.subtle {
+        width: 100%;
+        min-height: 44px
+    }
+
+    .request-edit-schedule {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px
+    }
+
+    .request-date-trigger,
+    .request-time-trigger {
+        min-height: 44px;
+        font-size: 14px
+    }
+}
+
+@media (max-width: 500px) {
+    .request-card-head {
+        display: grid;
+        width: 100%;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "lead meta"
+            "info info";
+        align-items: start;
+        gap: 8px
+    }
+
+    .request-main {
+        display: contents
+    }
+
+    .request-main > :first-child {
+        grid-area: lead;
+        align-self: center;
+        justify-self: start
+    }
+
+    .request-info {
+        grid-area: info;
+        width: 100%
+    }
+
+    .request-meta {
+        grid-area: meta;
+        width: fit-content;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-end;
+        justify-self: end;
+        gap: 6px
+    }
+
+    .request-time {
+        white-space: nowrap;
+        justify-content: center;
+        text-align: center
+    }
+}
+
+@media (max-width: 375px) {
+    .request-name {
+        font-size: 14px
+    }
+
+    .request-vehicle,
+    .request-contact-box span,
+    .request-message-box span {
+        font-size: 13px
+    }
+}

@@ -1,4 +1,4 @@
-import "../styles/base.css";
+import "../utils/errorHandler.js";
 import "../styles/theme.css";
 import { mountLoginPage } from "../pages/loginPage.js";
 import { initializeTheme } from "../utils/theme.js";

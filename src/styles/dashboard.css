@@ -37,7 +37,11 @@
 }
 .dashboard-schedule-panel{
   height: fit-content;
+  padding: var(--padding-24);
   min-height: 300px;
+}
+.dashboard-overview-panel{
+  padding: var(--padding-24);
 }
 .schedule-row-main {
   display: flex;

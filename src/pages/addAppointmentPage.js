@@ -292,7 +292,7 @@ export async function mountAddAppointmentPage(rootElement) {
     const optionsDiv = timePicker.querySelector("[data-schedule-time-options]");
     if (hiddenInput instanceof HTMLInputElement) hiddenInput.value = normalized;
     if (label instanceof HTMLElement) label.textContent = normalized;
-    if (optionsDiv instanceof HTMLElement) optionsDiv.innerHTML = scheduleTimeOptionsMarkup(normalized);
+    if (optionsDiv instanceof HTMLElement) optionsDiv.innerHTML = scheduleTimeOptionsMarkup(normalized, authState.activeGarage);
   };
 
   const defaultDate = toDateInputValue(defaultDateTime);
@@ -633,3 +633,4 @@ export async function mountAddAppointmentPage(rootElement) {
 
   await refreshSidebarInbox();
 }
+

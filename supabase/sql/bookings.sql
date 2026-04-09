@@ -10,6 +10,7 @@
 create table if not exists public.bookings (
   id            uuid        primary key default gen_random_uuid(),
   garage_id     uuid        not null references public.garages (id) on delete cascade,
+  name          text,
   license_plate text        not null,
   phone         text,
   service       text        not null,
@@ -26,6 +27,12 @@ create index if not exists bookings_garage_id_created_at_idx
 
 create index if not exists bookings_garage_id_status_idx
   on public.bookings (garage_id, status);
+
+-- Ensure compatibility with legacy rows/scripts expecting bookings.name
+alter table public.bookings add column if not exists name text;
+
+-- Fast/simple appointment color used by request cards
+alter table public.bookings add column if not exists color text;
 
 -- ------------------------------------------------------------
 -- booking_schedule — geplande datum + tijd per afspraak
@@ -45,7 +52,7 @@ create index if not exists booking_schedule_garage_date_time_idx
 -- ------------------------------------------------------------
 -- bookings_with_schedule view
 -- ------------------------------------------------------------
-create or replace view public.bookings_with_schedule as
+create or replace view public.bookings_with_schedule with (security_invoker = on) as
 select
   b.id,
   b.garage_id,

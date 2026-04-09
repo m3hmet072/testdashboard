@@ -1,4 +1,12 @@
 const HALF_HOUR_TIME_OPTIONS = buildHalfHourTimeOptions();
+
+function scheduleTimeToMinutes(t) {
+  const n = String(t ?? "").trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!n) return null;
+  const o = Number.parseInt(n[1], 10), s = Number.parseInt(n[2], 10);
+  if (!Number.isFinite(o) || !Number.isFinite(s)) return null;
+  return Math.min(23, Math.max(0, o)) * 60 + Math.min(59, Math.max(0, s));
+}
 const DATE_OPTION_PAST_DAYS = 7;
 const DATE_OPTION_FUTURE_DAYS = 90;
 
@@ -182,10 +190,22 @@ export function formatScheduleDateLabel(value) {
   return shortDate;
 }
 
-export function scheduleTimeOptionsMarkup(selectedTime) {
+export function scheduleTimeOptionsMarkup(selectedTime, garage) {
   const normalized = normalizeTimeValue(selectedTime);
 
-  return HALF_HOUR_TIME_OPTIONS.map((time) => {
+  let slots = HALF_HOUR_TIME_OPTIONS;
+  if (garage) {
+    const s = scheduleTimeToMinutes((garage.workingHoursStart ?? garage.working_hours_start) ?? "00:00");
+    const e = scheduleTimeToMinutes((garage.workingHoursEnd ?? garage.working_hours_end) ?? "23:00");
+    if (s !== null && e !== null && s <= e) {
+      slots = [];
+      for (let m = s; m <= e; m += 30) {
+        slots.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+      }
+    }
+  }
+
+  return slots.map((time) => {
     const isSelected = time === normalized;
 
     return `<button

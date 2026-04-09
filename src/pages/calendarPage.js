@@ -1,548 +1,120 @@
-import { createAppShell } from "../components/appShell.js";
-import { getBookings, markBookingDone, persistBookingSchedule } from "../services/bookingService.js";
-import { summarizeEmailInbox } from "../services/emailService.js";
-import { fetchVehicleByLicensePlate, normalizeLicensePlate } from "../services/rdwService.js";
-import { ensureAuthenticated, logoutAndRedirect } from "../utils/auth.js";
-import { applyGarageBranding } from "../utils/branding.js";
-import { showConfirmDialog } from "../utils/confirmDialog.js";
-import { assetUrl, pageUrl } from "../utils/paths.js";
-import {
-  formatScheduleDateLabel,
-  handleScheduleTimePickerInteraction,
-  normalizeDateValue,
-  normalizeTimeValue,
-  scheduleDateOptionsMarkup,
-  scheduleTimeOptionsMarkup,
-} from "../utils/scheduleTimePicker.js";
-
-const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const FALLBACK_NAMES = [
-  "Thomas Mulder",
-  "Sophie Koning",
-  "Rupert Clark",
-  "Jack Thomesen",
-  "Alex Vermeer",
-];
-
-const SERVICE_LABEL_BY_KEY = {
-  apk: "APK",
-  banden: "Banden",
-  airco: "Airco",
-  occasions: "Occasions",
-  onderhoud: "Onderhoud",
-  brakes: "Brakes",
-  other: "Other",
-};
-
-const SERVICE_KEY_ALIASES = new Map([
-  ["apk", "apk"],
-  ["banden", "banden"],
-  ["tire", "banden"],
-  ["tires", "banden"],
-  ["airco", "airco"],
-  ["ac", "airco"],
-  ["occasion", "occasions"],
-  ["occasions", "occasions"],
-  ["onderhoud", "onderhoud"],
-  ["maintenance", "onderhoud"],
-  ["service", "onderhoud"],
-  ["brakes", "brakes"],
-  ["brake", "brakes"],
-  ["remmen", "brakes"],
-]);
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function fallbackVehiclePreview(licensePlate = "") {
-  const normalized = normalizeLicensePlate(licensePlate);
-  return {
-    title: normalized || "Unknown vehicle",
-    buildYear: "",
-  };
-}
-
-function formatLicensePlate(plate) {
-  const cleaned = String(plate ?? "").toUpperCase().replace(/[^A-Z0-9]/g, '');
-  // Format as: XX-XX-XX (groups of 2 separated by dashes)
-  return cleaned.replace(/(.{2})(?=.)/g, '$1-');
-}
-
-function parseDate(value) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function toDateKey(value) {
-  const date = value instanceof Date ? value : parseDate(value);
-  if (!date) {
-    return "";
-  }
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function formatTime(value) {
-  const date = parseDate(value);
-  if (!date) {
-    return "--:--";
-  }
-
-  return date.toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
-
-function toDateInputValue(value) {
-  const date = parseDate(value);
-  if (!date) {
-    return "";
-  }
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function toTimeInputValue(value) {
-  const date = parseDate(value);
-  if (!date) {
-    return "09:00";
-  }
-
-  const hour = String(date.getHours()).padStart(2, "0");
-  const minute = String(date.getMinutes()).padStart(2, "0");
-  return `${hour}:${minute}`;
-}
-
-function buildAppointmentAtValue(dateValue, timeValue) {
-  const safeDate = String(dateValue ?? "").trim();
-  const safeTime = String(timeValue ?? "").trim();
-
-  if (!safeDate || !safeTime) {
-    return "";
-  }
-
-  const combined = `${safeDate}T${safeTime}:00`;
-  return parseDate(combined) ? combined : "";
-}
-
-function isInteractiveClick(target) {
-  return target instanceof Element && Boolean(target.closest("button, input, select, textarea, a, label"));
-}
-
-function formatMonthLabel(value) {
-  return value.toLocaleDateString(undefined, {
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function formatDayTitle(value) {
-  return value.toLocaleDateString(undefined, {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-function formatDayShort(value) {
-  return value.toLocaleDateString(undefined, {
-    weekday: "short",
-    day: "2-digit",
-    month: "short",
-  });
-}
-
-function formatCalendarDayTitle(value) {
-  const dayLabel = value.toLocaleDateString(undefined, {
-    day: "2-digit",
-    month: "short",
-  });
-
-  if (toDateKey(value) === toDateKey(new Date())) {
-    return `Today, ${dayLabel}`;
-  }
-
-  return formatDayShort(value);
-}
-
-function normalizeStatus(value) {
-  const normalized = String(value ?? "").trim().toLowerCase();
-
-  if (
-    normalized === "done" ||
-    normalized === "completed" ||
-    normalized === "complete" ||
-    normalized === "closed"
-  ) {
-    return "done";
-  }
-
-  if (normalized === "confirmed" || normalized === "confirm") {
-    return "confirmed";
-  }
-
-  return "new";
-}
-
-function isCompletedBooking(booking) {
-  return normalizeStatus(booking.status) === "done" || booking.inAppointments === false;
-}
-
-function splitServiceValues(service) {
-  const raw = String(service ?? "").trim();
-  if (!raw) {
-    return ["other"];
-  }
-
-  const parts = raw
-    .split(raw.includes(",") ? /,/g : /\+|\/|&| and /gi)
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  return parts.length ? parts : [raw];
-}
-
-function normalizeServiceKey(value) {
-  return SERVICE_KEY_ALIASES.get(String(value ?? "").trim().toLowerCase()) ?? "other";
-}
-
-function serviceChipsMarkup(service) {
-  return splitServiceValues(service)
-    .map((token) => {
-      const key = normalizeServiceKey(token);
-      const label = SERVICE_LABEL_BY_KEY[key] ?? SERVICE_LABEL_BY_KEY.other;
-      return `<span class="service-chip service-chip-${key}">${escapeHtml(label)}</span>`;
-    })
-    .join("");
-}
-
-function extractContactName(rawMessage) {
-  const raw = String(rawMessage ?? "");
-  const match = raw.match(/\bname\s*:\s*([^\n]+)/i);
-  return (match?.[1] ?? "").trim();
-}
-
-function extractContactMessage(rawMessage) {
-  const raw = String(rawMessage ?? "");
-  const messageMatch = raw.match(/\bmessage\s*:\s*([\s\S]+)/i);
-  if (messageMatch?.[1]) {
-    return messageMatch[1].trim();
-  }
-
-  return raw.trim();
-}
-
-function customerName(booking, index) {
-  const fromPayload = extractContactName(booking.message);
-  if (fromPayload) {
-    return fromPayload;
-  }
-
-  return FALLBACK_NAMES[index % FALLBACK_NAMES.length];
-}
-
-function bookingDateKey(booking) {
-  return toDateKey(booking.appointmentAt ?? booking.createdAt);
-}
-
-function buildMonthCells(monthCursor, activeBookings, selectedKey) {
-  const firstDay = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
-  const lastDay = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0);
-  const totalDays = lastDay.getDate();
-  const leadDays = (firstDay.getDay() + 6) % 7;
-
-  const bookingCountByDay = activeBookings.reduce((map, booking) => {
-    const key = bookingDateKey(booking);
-    if (!key) {
-      return map;
-    }
-
-    map.set(key, (map.get(key) ?? 0) + 1);
-    return map;
-  }, new Map());
-
-  const cells = [];
-
-  for (let index = leadDays; index > 0; index -= 1) {
-    const date = new Date(firstDay);
-    date.setDate(1 - index);
-    const key = toDateKey(date);
-
-    cells.push({
-      key,
-      date,
-      day: date.getDate(),
-      isCurrentMonth: false,
-      isSelected: key === selectedKey,
-      count: bookingCountByDay.get(key) ?? 0,
-    });
-  }
-
-  for (let day = 1; day <= totalDays; day += 1) {
-    const date = new Date(firstDay.getFullYear(), firstDay.getMonth(), day);
-    const key = toDateKey(date);
-
-    cells.push({
-      key,
-      date,
-      day,
-      isCurrentMonth: true,
-      isSelected: key === selectedKey,
-      count: bookingCountByDay.get(key) ?? 0,
-    });
-  }
-
-  while (cells.length % 7 !== 0) {
-    const date = new Date(lastDay);
-    const dayOffset = cells.length - (leadDays + totalDays) + 1;
-    date.setDate(lastDay.getDate() + dayOffset);
-    const key = toDateKey(date);
-
-    cells.push({
-      key,
-      date,
-      day: date.getDate(),
-      isCurrentMonth: false,
-      isSelected: key === selectedKey,
-      count: bookingCountByDay.get(key) ?? 0,
-    });
-  }
-
-  return cells;
-}
-
-function monthGridMarkup(monthCursor, activeBookings, selectedKey) {
-  const cells = buildMonthCells(monthCursor, activeBookings, selectedKey);
-  const todayKey = toDateKey(new Date());
-
-  const weekHeadMarkup = WEEK_DAYS.map((day) => `<span class="month-weekday">${day}</span>`).join("");
-
-  const cellMarkup = cells
-    .map((cell) => {
-      const classes = ["month-cell"];
-      if (!cell.isCurrentMonth) {
-        classes.push("is-outside");
-      }
-      if (cell.isSelected) {
-        classes.push("is-selected");
-      }
-      if (cell.isCurrentMonth && cell.key === todayKey) {
-        classes.push("is-today");
-      }
-      if (cell.count > 0) {
-        classes.push("has-bookings");
-      }
-
-      return `
-        <button class="${classes.join(" ")}" type="button" data-calendar-cell="${cell.key}">
-          <span class="month-cell-day">${cell.day}</span>
-          ${cell.count > 0 ? '<span class="month-cell-dot" aria-hidden="true"></span>' : ""}
+import{p as Vt,d as At,c as _t}from"../utils/theme.js";/* empty css                      */import{c as Wt,M as ct}from"../components/calendar-quickadd-modal.js";import{h as Gt,n as at,r as zt,a as Qt,f as Jt,b as Xt,s as Zt,c as Lt}from"../components/requestCard.js";import{e as te,a as ee,c as ne,l as ae,p as Tt,i as Ct,m as se,s as xt,b as Et,j as oe}from"../utils/branding.js";import{n as bt,f as ie}from"../services/rdwService.js";import{s as Nt}from"../utils/confirmDialog.js";const re=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],Bt=["Thomas Mulder","Sophie Koning","Rupert Clark","Jack Thomesen","Alex Vermeer"],ht={apk:"APK",banden:"Banden",airco:"Airco",occasions:"Occasions",onderhoud:"Onderhoud",brakes:"Brakes",other:"Other"},le=new Map([["apk","apk"],["banden","banden"],["tire","banden"],["tires","banden"],["airco","airco"],["ac","airco"],["occasion","occasions"],["occasions","occasions"],["onderhoud","onderhoud"],["maintenance","onderhoud"],["service","onderhoud"],["brakes","brakes"],["brake","brakes"],["remmen","brakes"]]);function f(t){return String(t).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;")}function ce(t=""){return{title:bt(t)||"Unknown vehicle",buildYear:""}}function gt(t){return String(t??"").toUpperCase().replace(/[^A-Z0-9]/g,"").replace(/(.{2})(?=.)/g,"$1-")}function Y(t){const e=new Date(t);return Number.isNaN(e.getTime())?null:e}function I(t){const e=t instanceof Date?t:Y(t);if(!e)return"";const n=e.getFullYear(),o=String(e.getMonth()+1).padStart(2,"0"),s=String(e.getDate()).padStart(2,"0");return`${n}-${o}-${s}`}function It(t){const e=Y(t);return e?e.toLocaleTimeString(void 0,{hour:"2-digit",minute:"2-digit",hour12:!1}):"--:--"}function qt(t){const n=String(t??"").trim().match(/^(\d{1,2}):(\d{2})$/);if(!n)return null;const o=Number.parseInt(n[1],10),s=Number.parseInt(n[2],10);if(!Number.isFinite(o)||!Number.isFinite(s))return null;const c=Math.min(23,Math.max(0,o)),p=Math.min(59,Math.max(0,s));return c*60+p}function de(t){const e={startMinutes:0,endMinutes:1380},n=(t==null?void 0:t.workingHoursStart)??(t==null?void 0:t.working_hours_start)??"00:00",o=(t==null?void 0:t.workingHoursEnd)??(t==null?void 0:t.working_hours_end)??"23:00",s=qt(n),c=qt(o);return s===null||c===null?e:s>c?{startMinutes:s,endMinutes:s}:{startMinutes:s,endMinutes:c}}function ue(t){const e=Number.isFinite(t==null?void 0:t.startMinutes)?t.startMinutes:0,n=Number.isFinite(t==null?void 0:t.endMinutes)?t.endMinutes:23*60,o=[];for(let s=e;s<=n;s+=30){const c=String(Math.floor(s/60)).padStart(2,"0"),p=String(s%60).padStart(2,"0");o.push(`${c}:${p}`)}return o.length||o.push("00:00"),o}function pe(t){const e=Y(t);if(!e)return"";const n=e.getFullYear(),o=String(e.getMonth()+1).padStart(2,"0"),s=String(e.getDate()).padStart(2,"0");return`${n}-${o}-${s}`}function me(t){const e=Y(t);if(!e)return"09:00";const n=String(e.getHours()).padStart(2,"0"),o=String(e.getMinutes()).padStart(2,"0");return`${n}:${o}`}function ft(t,e=60){const[n,o]=at(t).split(":"),s=Number(n),c=Number(o),p=(s*60+c+e)%(24*60),a=String(Math.floor(p/60)).padStart(2,"0"),d=String(p%60).padStart(2,"0");return`${a}:${d}`}function he(t,e){const n=String(t??"").trim(),o=String(e??"").trim();if(!n||!o)return"";const s=`${n}T${o}:00`;return Y(s)?s:""}function ge(t){return t instanceof Element&&!!t.closest("button, input, select, textarea, a, label")}function fe(t){return t.toLocaleDateString(void 0,{month:"long",year:"numeric"})}function ye(t){return t.toLocaleDateString(void 0,{weekday:"long",day:"numeric",month:"long",year:"numeric"})}function be(t){return t.toLocaleDateString(void 0,{weekday:"short",day:"2-digit",month:"short"})}function ve(t){const e=t.toLocaleDateString(void 0,{day:"2-digit",month:"short"});return I(t)===I(new Date)?`Today, ${e}`:be(t)}function we(t){const e=String(t??"").trim().toLowerCase();return e==="done"||e==="completed"||e==="complete"||e==="closed"?"done":e==="confirmed"||e==="confirm"?"confirmed":"new"}function Pt(t){return we(t.status)==="done"||t.inAppointments===!1}function ke(t){const e=String(t??"").trim();if(!e)return["other"];const n=e.split(e.includes(",")?/,/g:/\+|\/|&| and /gi).map(o=>o.trim()).filter(Boolean);return n.length?n:[e]}function Se(t){return le.get(String(t??"").trim().toLowerCase())??"other"}function yt(t){return ke(t).map(e=>{const n=Se(e),o=n==="other"?String(e??"").trim()||ht.other:ht[n]??ht.other;return`<span class="service-chip service-chip-${n}">${f(o)}</span>`}).join("")}function Me(t){const n=String(t??"").match(/\bname\s*:\s*([^\n]+)/i);return((n==null?void 0:n[1])??"").trim()}function Ht(t){const e=String(t??"").replace(ct,"").trim(),n=e.match(/\bmessage\s*:\s*([\s\S]*)/i),o=c=>String(c??"").split(/\r?\n/g).filter(p=>{const a=String(p??"").trim();return!(!a||/^\s*(until|end|tot)\s*:?\s*\d{1,2}:\d{2}\s*$/i.test(a)||/^\s*all[\s_-]?day\s*:\s*(true|false|1|0|yes|no|ja|nee)\s*$/i.test(a))}).join(`
+`).trim();if(n)return o(n[1]);const s=e.split(/\r?\n/g).filter(c=>{const p=c.trim();return p&&!/^\s*(name|title|end|allday|all[\s_-]?day|message)\s*:/i.test(p)});return o(s.join(`
+`))}function Ut(t){const n=String(t??"").match(/\btitle\s*:\s*([^\n]+)/i);return((n==null?void 0:n[1])??"").trim()}function $e(t){const n=String(t??"").match(/\bend\s*:\s*([^\n]+)/i);return at(((n==null?void 0:n[1])??"").trim(),"")}function dt(t){const n=String(t??"").match(/\ball[\s_-]?day\s*:\s*([^\n]+)/i);if(!(n!=null&&n[1]))return!1;const o=String(n[1]).trim().toLowerCase();return o==="true"||o==="1"||o==="yes"||o==="ja"}function X(t,e){const n=String((t==null?void 0:t.name)??"").trim(),o=String((t==null?void 0:t.title)??"").trim(),s=Me(t.message),c=Ut(t.message);return n||o||s||c||Bt[e%Bt.length]}function Ft(t){return I(t.appointmentAt??t.createdAt)}function De(t,e,n){const o=new Date(t.getFullYear(),t.getMonth(),1),s=new Date(t.getFullYear(),t.getMonth()+1,0),c=s.getDate(),p=(o.getDay()+6)%7,a=e.reduce((g,b)=>{const u=Ft(b);return u&&g.set(u,(g.get(u)??0)+1),g},new Map),d=[];for(let g=p;g>0;g-=1){const b=new Date(o);b.setDate(1-g);const u=I(b);d.push({key:u,date:b,day:b.getDate(),isCurrentMonth:!1,isSelected:u===n,count:a.get(u)??0})}for(let g=1;g<=c;g+=1){const b=new Date(o.getFullYear(),o.getMonth(),g),u=I(b);d.push({key:u,date:b,day:g,isCurrentMonth:!0,isSelected:u===n,count:a.get(u)??0})}for(;d.length%7!==0;){const g=new Date(s),b=d.length-(p+c)+1;g.setDate(s.getDate()+b);const u=I(g);d.push({key:u,date:g,day:g.getDate(),isCurrentMonth:!1,isSelected:u===n,count:a.get(u)??0})}return d}function Ae(t,e,n){const o=De(t,e,n),s=I(new Date),c=re.map(a=>`<span class="month-weekday">${a}</span>`).join(""),p=o.map(a=>{const d=["month-cell"];return a.isCurrentMonth||d.push("is-outside"),a.isSelected&&d.push("is-selected"),a.isCurrentMonth&&a.key===s&&d.push("is-today"),a.count>0&&d.push("has-bookings"),`
+        <button class="${d.join(" ")}" type="button" data-calendar-cell="${a.key}">
+          <span class="month-cell-day">${a.day}</span>
+          ${a.count>0?'<span class="month-cell-dot" aria-hidden="true"></span>':""}
         </button>
-      `;
-    })
-    .join("");
-
-  return `
+      `}).join("");return`
     <div class="month-grid-board">
-      <div class="month-week-row">${weekHeadMarkup}</div>
-      <div class="month-grid-cells">${cellMarkup}</div>
+      <div class="month-week-row">${c}</div>
+      <div class="month-grid-cells">${p}</div>
     </div>
-  `;
-}
-
-function dayBoardMarkup(selectedDate, bookingsForDay) {
-  const slots = [];
-  for (let hour = 0; hour <= 23; hour += 1) {
-    slots.push(`${String(hour).padStart(2, "0")}:00`);
-    slots.push(`${String(hour).padStart(2, "0")}:30`);
-  }
-
-  const bookingBySlot = bookingsForDay.reduce((map, booking, index) => {
-    const slot = formatTime(booking.appointmentAt ?? booking.createdAt);
-    const items = map.get(slot) ?? [];
-    items.push({ booking, index });
-    map.set(slot, items);
-    return map;
-  }, new Map());
-
-  return `
+  `}function Le(t,e){const n=ue(e),o=t.filter(a=>dt(a.message)),c=t.filter(a=>!dt(a.message)).reduce((a,d,g)=>{const b=It(d.appointmentAt??d.createdAt),u=a.get(b)??[];return u.push({booking:d,index:g}),a.set(b,u),a},new Map);return`
     <div class="day-board-list">
-      ${slots
-      .map((slot) => {
-        const slotBookings = bookingBySlot.get(slot) ?? [];
-
-        if (!slotBookings.length) {
-          return `
+      ${o.length?`
+      <div class="day-all-day-row day-slot-row has-booking">
+        <span class="day-slot-time is-all-day">All day</span>
+        <div class="day-slot-line"></div>
+        <div class="day-slot-booking">
+          <span class="day-slot-count">${o.length} appointment${o.length===1?"":"s"}</span>
+          <div class="day-slot-bookings">
+            ${o.map((a,d)=>{const g=f(String(a.id??"")),b=String(a.licensePlate??"").toUpperCase()==="UNKNOWN",u=f(a.color??"#2563EB"),W=f(a.licensePlate&&a.licensePlate!=="UNKNOWN"?gt(a.licensePlate):"UNKNOWN"),H=f(X(a,d));return`
+                <div class="day-slot-booking-item" data-day-slot-booking-id="${g}">
+                  <div class="day-slot-plate-wrapper">
+                    ${b?`<span class="fast-appt-dot" style="background: ${u}" aria-hidden="true"></span>`:`<span class="plate-chip">${W}</span>`}
+                  </div>
+                  <div class="day-slot-booking-info">
+                    <div class="day-slot-booking-row">
+                      <span class="day-slot-name">${H}</span>
+                    </div>
+                    <div class="day-slot-status-services">
+                      <span class="status-chip status-chip-progress">All day</span>
+                      ${yt(a.service)}
+                    </div>
+                  </div>
+                </div>
+              `}).join("")}
+          </div>
+        </div>
+      </div>
+    `:""}
+      ${n.map(a=>{const d=c.get(a)??[];if(!d.length)return`
               <div class="day-slot-row">
-                <span class="day-slot-time">${slot}</span>
+                <span class="day-slot-time">${a}</span>
                 <div class="day-slot-line"></div>
                 <span class="day-slot-empty">Available</span>
               </div>
-            `;
-        }
-
-        const slotBookingsMarkup = slotBookings
-          .map(({ booking, index }, itemIndex) => {
-            const bookingId = escapeHtml(String(booking.id ?? ""));
-            const plate = escapeHtml(booking.licensePlate && booking.licensePlate !== "UNKNOWN" ? formatLicensePlate(booking.licensePlate) : "UNKNOWN");
-            const name = escapeHtml(customerName(booking, index));
-            const showLineDivider = slotBookings.length > 1 && itemIndex < slotBookings.length - 1;
-
-            return `
-              <div class="day-slot-booking-item" data-day-slot-booking-id="${bookingId}">
+            `;const g=d.map(({booking:u,index:W},H)=>{const U=f(String(u.id??"")),Z=String(u.licensePlate??"").toUpperCase()==="UNKNOWN",V=f(u.color??"#2563EB"),k=f(u.licensePlate&&u.licensePlate!=="UNKNOWN"?gt(u.licensePlate):"UNKNOWN"),S=f(X(u,W)),y=d.length>1&&H<d.length-1;return`
+              <div class="day-slot-booking-item" data-day-slot-booking-id="${U}">
                 <div class="day-slot-plate-wrapper">
-                  <span class="plate-chip">${plate}</span>
+                  ${Z?`<span class="fast-appt-dot" style="background: ${V}" aria-hidden="true"></span>`:`<span class="plate-chip">${k}</span>`}
                 </div>
                 <div class="day-slot-booking-info">
                   <div class="day-slot-booking-row">
-                    <span class="day-slot-name">${name}</span>
+                    <span class="day-slot-name">${S}</span>
                   </div>
                   <div class="day-slot-status-services">
                     <span class="status-chip status-chip-progress">In Progress</span>
-                    ${serviceChipsMarkup(booking.service)}
+                    ${yt(u.service)}
                   </div>
                 </div>
               </div>
-              ${showLineDivider ? '<div class="line-days" aria-hidden="true"></div>' : ""}
-            `;
-          })
-          .join("");
-
-        const slotCountMarkup = slotBookings.length > 1
-          ? `<span class="day-slot-count">${slotBookings.length} appointments</span>`
-          : "";
-
-        return `
+              ${y?'<div class="line-days" aria-hidden="true"></div>':""}
+            `}).join(""),b=d.length>1?`<span class="day-slot-count">${d.length} appointments</span>`:"";return`
             <div class="day-slot-row has-booking">
-              <span class="day-slot-time">${slot}</span>
+              <span class="day-slot-time">${a}</span>
               <div class="day-slot-line"></div>
               <div class="day-slot-booking">
-                ${slotCountMarkup}
+                ${b}
                 <div class="day-slot-bookings">
-                  ${slotBookingsMarkup}
+                  ${g}
                 </div>
               </div>
             </div>
-          `;
-      })
-      .join("")}
+          `}).join("")}
     </div>
-  `;
-}
+  `}function Te(t,e,n,o,garage){return t.length?t.map((s,c)=>{const p=String(s.id??""),a=e===p,d=n===p,g=s.appointmentAt??s.createdAt,b=String(s.licensePlate??"").toUpperCase()==="UNKNOWN",u=f(s.color??"#2563EB"),W=f(s.licensePlate&&s.licensePlate!=="UNKNOWN"?gt(s.licensePlate):"UNKNOWN"),H=It(g),U=Qt(pe(g)),Z=f(U),V=f(Jt(U)),k=at(me(g)),S=f(k),y=dt(s.message),D=at($e(s.message)||ft(k)),B=f(D);f(y?"All day":`${H} - ${D}`),f(X(s,c));const A=s.licensePlate?bt(s.licensePlate):"",$=o.get(A)||ce(s.licensePlate),st=$.buildYear?`${$.title} (${$.buildYear})`:$.title,_=String(s.phone??"").trim(),tt=f(!_||_==="0000000000"?"Not filled in":_),ut=f(_==="0000000000"?"":_),L=f(Ht(s.message)||"No customer message."),et=f(Ut(s.message)||X(s,c)),ot=b?`<span class="fast-appt-dot" style="background: ${u}" aria-hidden="true"></span>`:`<span class="plate-chip">${W}</span>`,nt=Xt({leadMarkup:ot,name:X(s,c),vehicle:b?"":st,servicesMarkup:yt(s.service),timeLabel:y?"All day":`${H} - ${D}`,isExpanded:a,toggleDataAttribute:"data-calendar-toggle",toggleId:p,expandAriaLabel:"Expand appointment details",collapseAriaLabel:"Collapse appointment details"});return`
+        <article class="request-card ${a?"is-expanded":""}" data-calendar-booking-id="${f(p)}">
+          ${nt}
 
-function selectedDayCardsMarkup(bookingsForDay, expandedBookingId, editingBookingId, vehicleCache) {
-  if (!bookingsForDay.length) {
-    return '<article class="request-card"><p class="muted">No appointments for this date.</p></article>';
-  }
-
-  return bookingsForDay
-    .map((booking, index) => {
-      const bookingId = String(booking.id ?? "");
-      const isExpanded = expandedBookingId === bookingId;
-      const isEditing = editingBookingId === bookingId;
-      const appointmentAt = booking.appointmentAt ?? booking.createdAt;
-      const plate = escapeHtml(booking.licensePlate && booking.licensePlate !== "UNKNOWN" ? formatLicensePlate(booking.licensePlate) : "UNKNOWN");
-      const time = escapeHtml(formatTime(appointmentAt));
-      const scheduleDate = normalizeDateValue(toDateInputValue(appointmentAt));
-      const safeScheduleDate = escapeHtml(scheduleDate);
-      const scheduleDateLabel = escapeHtml(formatScheduleDateLabel(scheduleDate));
-      const scheduleTime = normalizeTimeValue(toTimeInputValue(appointmentAt));
-      const safeScheduleTime = escapeHtml(scheduleTime);
-      const name = escapeHtml(customerName(booking, index));
-      const licensePlateKey = booking.licensePlate ? normalizeLicensePlate(booking.licensePlate) : "";
-      const vehicleData = vehicleCache.get(licensePlateKey) || fallbackVehiclePreview(booking.licensePlate);
-      const vehicle = vehicleData.buildYear
-        ? `${vehicleData.title} (${vehicleData.buildYear})`
-        : vehicleData.title;
-      const phone = escapeHtml(String(booking.phone ?? "No phone number"));
-      const message = escapeHtml(extractContactMessage(booking.message) || "No customer message.");
-
-      return `
-        <article class="request-card ${isExpanded ? "is-expanded" : ""}" data-calendar-booking-id="${escapeHtml(bookingId)}">
-          <div class="request-card-head">
-            <div class="request-main">
-              <span class="plate-chip">${plate}</span>
-              <div class="request-info">
-                <p class="request-name"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M14.1668 7.08463C14.1668 4.78345 12.3013 2.91797 10.0002 2.91797C7.69898 2.91797 5.8335 4.78345 5.8335 7.08463C5.8335 9.3858 7.69898 11.2513 10.0002 11.2513C12.3013 11.2513 14.1668 9.3858 14.1668 7.08463Z" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M15.8332 17.0833C15.8332 13.8617 13.2215 11.25 9.99984 11.25C6.77818 11.25 4.1665 13.8617 4.1665 17.0833" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
-${name}</p>
-                <p class="request-vehicle"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M7.50667 14.1667C7.50667 15.0872 6.76048 15.8333 5.84001 15.8333C4.91953 15.8333 4.17334 15.0872 4.17334 14.1667C4.17334 13.2462 4.91953 12.5 5.84001 12.5C6.76048 12.5 7.50667 13.2462 7.50667 14.1667Z" stroke="#666666" stroke-width="1.5"/>
-<path d="M15.8397 14.1667C15.8397 15.0872 15.0935 15.8333 14.173 15.8333C13.2525 15.8333 12.5063 15.0872 12.5063 14.1667C12.5063 13.2462 13.2525 12.5 14.173 12.5C15.0935 12.5 15.8397 13.2462 15.8397 14.1667Z" stroke="#666666" stroke-width="1.5"/>
-<path d="M1.67301 8.33464H15.0063M1.67301 8.33464C1.67301 8.98464 1.65635 10.868 1.67634 12.718C1.70632 13.318 1.80624 13.818 4.17444 14.168M1.67301 8.33464C1.85288 6.88464 2.63561 5.16797 3.0353 4.51797M7.50634 8.33464V4.16797M12.4981 14.168H7.5019M1.68634 4.16797H10.1998C10.1998 4.16797 10.6495 4.16797 11.0492 4.20797C11.7987 4.27797 12.4282 4.61797 13.0577 5.46797C13.7242 6.36797 14.2367 7.50797 14.9162 8.11797C16.0454 9.13164 18.1937 8.81797 18.3137 10.968C18.3437 12.068 18.3437 13.268 18.2937 13.468C18.2134 14.0569 17.7593 14.1531 17.1945 14.168C16.7043 14.181 16.1134 14.1447 15.8256 14.168" stroke="#666666" stroke-width="1.5" stroke-linecap="round"/>
-</svg>
-${vehicle}</p>
-                <div class="request-services">${serviceChipsMarkup(booking.service)}</div>
-              </div>
-            </div>
-            <div class="request-meta">
-              <span class="request-time"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M8.00016 14.6654C11.6821 14.6654 14.6668 11.6806 14.6668 7.9987C14.6668 4.3168 11.6821 1.33203 8.00016 1.33203C4.31826 1.33203 1.3335 4.3168 1.3335 7.9987C1.3335 11.6806 4.31826 14.6654 8.00016 14.6654Z" stroke="#333333" stroke-width="1.25"/>
-<path d="M8 5.33203V7.9987L9.33333 9.33203" stroke="#333333" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
-${time}</span>
-              <button
-                class="request-toggle ${isExpanded ? "is-expanded" : ""}"
-                type="button"
-                data-calendar-toggle="${escapeHtml(bookingId)}"
-                aria-expanded="${isExpanded ? "true" : "false"}"
-                aria-label="${isExpanded ? "Collapse appointment details" : "Expand appointment details"}"
-              >
-                <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-                  <path d="M5.5 8.2L10 12.8L14.5 8.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          ${isExpanded
-          ? `
+          ${a?`
             <div class="request-divider"></div>
             <div class="request-expanded">
               <div class="request-expanded-grid">
                 <div class="request-contact-box">
                   <div class="request-box-label">
-                    <img src="${assetUrl("sidebar-icons/user.png")}" alt="" aria-hidden="true" />
+                    <img src="${At("sidebar-icons/user.png")}" alt="" aria-hidden="true" />
                     <span>Phone</span>
                   </div>
                   <div class="request-box-divider"></div>
-                  <span>${phone}</span>
+                  <span>${tt}</span>
                 </div>
                 <div class="request-message-box">
                   <div class="request-box-label">
-                    <img src="${assetUrl("sidebar-icons/text.png")}" alt="" aria-hidden="true" />
+                    <img src="${At("sidebar-icons/text.png")}" alt="" aria-hidden="true" />
                     <span>Message</span>
                   </div>
                   <div class="request-box-divider"></div>
-                  <span>${message}</span>
+                  <span>${L}</span>
                 </div>
               </div>
 
               <div class="request-actions">
-                ${isEditing
-            ? `
+                ${d?`
                   <div class="request-edit-schedule">
+                    <label class="request-edit-field">
+                      <span>Title</span>
+                      <input type="text" data-schedule-edit-title value="${et}" placeholder="Title" />
+                    </label>
+                    <label class="request-edit-field">
+                      <span>Phone</span>
+                      <input type="tel" data-schedule-edit-phone value="${ut}" placeholder="Phone" />
+                    </label>
                     <label class="request-edit-field">
                       <span>Date</span>
                       <div class="request-date-picker" data-schedule-date-picker>
-                        <input type="hidden" data-schedule-edit-date value="${safeScheduleDate}" />
+                        <input type="hidden" data-schedule-edit-date value="${Z}" />
                         <button
                           class="request-date-trigger"
                           type="button"
@@ -550,20 +122,20 @@ ${time}</span>
                           aria-haspopup="listbox"
                           aria-expanded="false"
                         >
-                          <span data-schedule-date-label>${scheduleDateLabel}</span>
+                          <span data-schedule-date-label>${V}</span>
                           <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
                             <path d="M5.5 8.2L10 12.8L14.5 8.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
                           </svg>
                         </button>
                         <div class="request-date-options" role="listbox" data-schedule-date-options>
-                          ${scheduleDateOptionsMarkup(scheduleDate)}
+                          ${Zt(U)}
                         </div>
                       </div>
                     </label>
                     <label class="request-edit-field">
-                      <span>Time</span>
+                      <span>Vanaf</span>
                       <div class="request-time-picker" data-schedule-time-picker>
-                        <input type="hidden" data-schedule-edit-time value="${safeScheduleTime}" />
+                        <input type="hidden" data-schedule-edit-time value="${S}" />
                         <button
                           class="request-time-trigger"
                           type="button"
@@ -571,94 +143,64 @@ ${time}</span>
                           aria-haspopup="listbox"
                           aria-expanded="false"
                         >
-                          <span data-schedule-time-label>${safeScheduleTime}</span>
+                          <span data-schedule-time-label>${S}</span>
                           <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
                             <path d="M5.5 8.2L10 12.8L14.5 8.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
                           </svg>
                         </button>
                         <div class="request-time-options" role="listbox" data-schedule-time-options>
-                          ${scheduleTimeOptionsMarkup(scheduleTime)}
+                          ${Lt(k,garage)}
                         </div>
                       </div>
                     </label>
-                    <button class="button subtle" type="button" data-calendar-action="save-schedule" data-booking-id="${escapeHtml(bookingId)}">Save</button>
-                    <button class="button subtle" type="button" data-calendar-action="cancel-edit" data-booking-id="${escapeHtml(bookingId)}">Cancel</button>
+                    <label class="request-edit-field">
+                      <span>Tot</span>
+                      <div class="request-time-picker" data-schedule-time-picker>
+                        <input type="hidden" data-schedule-edit-time data-schedule-edit-end-time value="${B}" />
+                        <button
+                          class="request-time-trigger"
+                          type="button"
+                          data-schedule-time-toggle
+                          aria-haspopup="listbox"
+                          aria-expanded="false"
+                        >
+                          <span data-schedule-time-label>${B}</span>
+                          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                            <path d="M5.5 8.2L10 12.8L14.5 8.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+                          </svg>
+                        </button>
+                        <div class="request-time-options" role="listbox" data-schedule-time-options>
+                          ${Lt(D,garage)}
+                        </div>
+                      </div>
+                    </label>
+                    <button class="button subtle" type="button" data-calendar-action="save-schedule" data-booking-id="${f(p)}">Save</button>
+                    <button class="button subtle" type="button" data-calendar-action="cancel-edit" data-booking-id="${f(p)}">Cancel</button>
                   </div>
-                `
-            : ""
-          }
+                `:""}
 
-                <button class="icon-button" type="button" data-calendar-action="edit" data-booking-id="${escapeHtml(bookingId)}" aria-label="Edit booking">✎</button>
-                ${!isEditing
-            ? `<button class="button" type="button" data-request-action="complete" data-booking-id="${escapeHtml(bookingId)}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <button class="icon-button" type="button" data-calendar-action="edit" data-booking-id="${f(p)}" aria-label="Edit booking">✎</button>
+                ${d?"":`<button class="button" type="button" data-request-action="complete" data-booking-id="${f(p)}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M2 9.25L5.75 13L14 4" stroke="white" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
  Mark Completed</button>
-                <button class="button danger" type="button" data-request-action="delete" data-booking-id="${escapeHtml(bookingId)}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <button class="button danger" type="button" data-request-action="delete" data-booking-id="${f(p)}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M13 3.66797L12.5869 10.3514C12.4813 12.0589 12.4285 12.9127 12.0005 13.5266C11.7889 13.83 11.5165 14.0862 11.2005 14.2786C10.5614 14.668 9.706 14.668 7.99513 14.668C6.28208 14.668 5.42553 14.668 4.78603 14.2779C4.46987 14.0851 4.19733 13.8285 3.98579 13.5245C3.55792 12.9097 3.5063 12.0547 3.40307 10.3448L3 3.66797" stroke="white" stroke-linecap="round"/>
 <path d="M2 3.66536H14M10.7038 3.66536L10.2487 2.72652C9.9464 2.10287 9.7952 1.79104 9.53447 1.59657C9.47667 1.55343 9.4154 1.51506 9.35133 1.48183C9.0626 1.33203 8.71607 1.33203 8.023 1.33203C7.31253 1.33203 6.95733 1.33203 6.66379 1.48811C6.59873 1.5227 6.53665 1.56263 6.47819 1.60748C6.21443 1.80983 6.06709 2.13306 5.77241 2.77954L5.36861 3.66536" stroke="white" stroke-linecap="round"/>
 <path d="M6.3335 11V7" stroke="white" stroke-linecap="round"/>
 <path d="M9.6665 11V7" stroke="white" stroke-linecap="round"/>
 </svg>
-Delete</button>`
-            : ""
-          }
+Delete</button>`}
               </div>
             </div>
-          `
-          : ""
-        }
+          `:""}
         </article>
-      `;
-    })
-    .join("");
-}
-
-function sortBookingsByAppointment(bookings) {
-  return [...bookings].sort(
-    (left, right) =>
-      new Date(left.appointmentAt ?? left.createdAt).getTime() -
-      new Date(right.appointmentAt ?? right.createdAt).getTime(),
-  );
-}
-
-export async function mountCalendarPage(rootElement) {
-  if (!rootElement) {
-    return;
-  }
-
-  const authState = await ensureAuthenticated();
-  if (!authState) {
-    return;
-  }
-
-  if (!authState.isAdmin && !authState.activeGarage) {
-    rootElement.innerHTML = `
+      `}).join(""):zt("No appointments for this date.")}function G(t){return[...t].sort((e,n)=>new Date(e.appointmentAt??e.createdAt).getTime()-new Date(n.appointmentAt??n.createdAt).getTime())}async function Ce(t){var St,Mt,$t,Dt;if(!t)return;const e=await te();if(!e)return;if(!e.isAdmin&&!e.activeGarage){t.innerHTML=`
       <section class="auth-card page-animate">
         <h1>No Garage Linked</h1>
         <p class="muted">Your account is authenticated but not mapped to a row in the garages table.</p>
       </section>
-    `;
-    return;
-  }
-
-  applyGarageBranding(authState.activeGarage);
-
-  const garageIds = authState.isAdmin ? null : [authState.activeGarage?.id].filter(Boolean);
-
-  const { shell, contentArea, setUnreadEmailCount } = createAppShell({
-    activePage: "calendar",
-    title: "Calendar",
-    headerNote: "Plan and track the day schedule",
-    userEmail: authState.user.email,
-    onLogout: logoutAndRedirect,
-    garage: authState.activeGarage,
-    isAdmin: authState.isAdmin,
-  });
-
-  rootElement.replaceChildren(shell);
-
-  contentArea.innerHTML = `
+    `;return}ee(e.activeGarage);const n=e.isAdmin?null:[(St=e.activeGarage)==null?void 0:St.id].filter(Boolean),o=((Mt=e.activeGarage)==null?void 0:Mt.id)??((Dt=($t=e.garages)==null?void 0:$t[0])==null?void 0:Dt.id)??"",{shell:s,contentArea:c,setUnreadEmailCount:p}=ne({activePage:"calendar",title:"Calendar",headerNote:"Plan and track the day schedule",userEmail:e.user.email,onLogout:ae,garage:e.activeGarage,isAdmin:e.isAdmin});t.replaceChildren(s),c.innerHTML=`
     <section class="calendar-page-grid">
       <div class="calendar-primary-col">
         <section class="panel calendar-board-panel">
@@ -694,373 +236,10 @@ export async function mountCalendarPage(rootElement) {
         <div id="calendarDayList" class="request-list"></div>
       </section>
     </section>
-  `;
+  `;const a=c.querySelector("#calendarBoardBody"),d=c.querySelector("#calendarPeriodLabel"),g=c.querySelector("#calendarModeMonth"),b=c.querySelector("#calendarModeDay"),u=c.querySelector("#calendarDayTitle"),W=c.querySelector("#calendarDayCount"),H=c.querySelector("#calendarDayList"),U=new URLSearchParams(window.location.search),Z=["1","true","yes"].includes(String(U.get("quickadd")??"").trim().toLowerCase()),V=String(U.get("quickaddEdit")??U.get("editBookingId")??"").trim();let k=[],S=[],y=new Date,D=new Date(y.getFullYear(),y.getMonth(),1),B="month",A="",$="",st="",_="";const vt=de(e.activeGarage),tt=new Map,ut=()=>{const m=I(y);return S.filter(i=>Ft(i)===m).sort((i,r)=>new Date(i.appointmentAt??i.createdAt).getTime()-new Date(r.appointmentAt??r.createdAt).getTime())},L=()=>{const m=I(y),i=ut(),r=B==="day"&&(st!=="day"||_!==m);g.classList.toggle("is-active",B==="month"),b.classList.toggle("is-active",B==="day"),A&&!i.some(M=>String(M.id)===A)&&(A="",$=""),$&&!i.some(M=>String(M.id)===$)&&($=""),B==="month"?(d.textContent=fe(D),a.innerHTML=Ae(D,S,m)):(d.textContent=ye(y),a.innerHTML=Le(i,vt),r&&window.requestAnimationFrame(()=>{const M=a.querySelector(".day-board-list");if(!(M instanceof HTMLElement))return;const C=M.querySelector(".day-slot-row.has-booking");if(C instanceof HTMLElement){const q=a.getBoundingClientRect(),F=C.getBoundingClientRect(),x=a.scrollTop+(F.top-q.top)-8;a.scrollTo({top:Math.max(0,x),behavior:"auto"})}else a.scrollTo({top:0,behavior:"auto"})})),u.textContent=ve(y),W.textContent=`${i.length} appointment${i.length===1?"":"s"}`,H.innerHTML=Te(i,A,$,tt,e.activeGarage),st=B,_=m};let et=0,ot="",nt=0,wt="";c.addEventListener("click",async m=>{const i=m.target instanceof Element?m.target:null;if(!i||Gt(c,i))return;const r=i.closest("[data-calendar-nav]");if(r instanceof HTMLElement){const l=r.dataset.calendarNav;if(B==="month"){const h=new Date(D);h.setMonth(D.getMonth()+(l==="next"?1:-1)),D=new Date(h.getFullYear(),h.getMonth(),1)}else{const h=new Date(y);h.setDate(y.getDate()+(l==="next"?1:-1)),y=h,D=new Date(y.getFullYear(),y.getMonth(),1)}L();return}const M=i.closest("[data-calendar-mode]");if(M instanceof HTMLElement){B=M.dataset.calendarMode==="day"?"day":"month",L();return}const C=i.closest("[data-calendar-cell]");if(C instanceof HTMLElement){const l=C.dataset.calendarCell;if(l){const h=Date.now(),T=m.detail>=2||h-et<550&&ot===l;if(et=h,ot=l,T){et=0,z.openForCreate(l,"");return}const v=Y(`${l}T12:00:00`);v&&(y=v,D=new Date(y.getFullYear(),y.getMonth(),1),L())}return}const q=i.closest("[data-day-slot-booking-id]");if(q instanceof HTMLElement){const l=String(q.dataset.daySlotBookingId??"");l&&(A=l,$="",L(),window.requestAnimationFrame(()=>{const h=[...H.querySelectorAll("[data-calendar-booking-id]")].find(T=>T instanceof HTMLElement&&String(T.dataset.calendarBookingId??"")===l);h instanceof HTMLElement&&h.scrollIntoView({behavior:"smooth",block:"start"})}));return}const F=i.closest("[data-calendar-toggle]");if(F instanceof HTMLElement){const l=String(F.dataset.calendarToggle??"");A=A===l?"":l,A!==l&&($=""),L();return}const x=i.closest("[data-calendar-action]");if(x instanceof HTMLElement){const l=String(x.dataset.calendarAction??""),h=String(x.dataset.bookingId??"");if(!h)return;if(l==="edit"){const v=S.find(w=>String(w.id)===h)??k.find(w=>String(w.id)===h);v&&z.openForEdit(v);return}if(l==="cancel-edit"){$="",L();return}if(l==="save-schedule"){const v=x.closest("[data-calendar-booking-id]");if(!(v instanceof HTMLElement))return;const w=S.find(N=>String(N.id)===h);if(!w)return;const P=v.querySelector("[data-schedule-edit-date]"),R=v.querySelector("[data-schedule-edit-time]"),it=v.querySelector("[data-schedule-edit-end-time]"),Q=v.querySelector("[data-schedule-edit-title]"),J=v.querySelector("[data-schedule-edit-phone]");if(!(P instanceof HTMLInputElement)||!(R instanceof HTMLInputElement))return;const j=he(P.value,R.value);if(!j)return;const rt=(Q instanceof HTMLInputElement?Q.value.trim():Ut(w.message))||X(w,0),Rt=it instanceof HTMLInputElement?at(it.value.trim(),ft(R.value)):ft(R.value),pt=J instanceof HTMLInputElement?J.value.trim():String(w.phone??"").trim(),jt=dt(w.message),Yt=Ht(w.message)||"",mt=[`Name: ${rt}`,`AllDay: ${jt?"true":"false"}`,`End: ${Rt}`,`Message: ${Yt||ct}`].filter(Boolean).join(`
+`);try{await Tt(w,j),await Ct(w,{name:rt,phone:pt,message:mt})}catch(N){window.alert(N instanceof Error?N.message:"Unable to save the appointment schedule.");return}k=G(k.map(N=>String(N.id)===h?{...N,appointmentAt:j,name:rt,phone:pt,message:mt}:N)),S=G(S.map(N=>String(N.id)===h?{...N,appointmentAt:j,name:rt,phone:pt,message:mt}:N));const lt=Y(j);lt&&(y=lt,D=new Date(lt.getFullYear(),lt.getMonth(),1)),$="",A=h,L();return}if(!S.find(v=>String(v.id)===h))return;L();return}const K=i.closest("[data-request-action]");if(K instanceof HTMLElement){const l=String(K.dataset.requestAction??""),h=String(K.dataset.bookingId??"");if(!h)return;const T=S.find(v=>String(v.id)===h);if(!T)return;if(l==="complete"){(async()=>{if(await Nt("Are you sure you want to mark this appointment as completed?","Mark as Completed")){try{await se(T,{convertedFromEmail:T.source!=="manual"})}catch(w){window.alert(w instanceof Error?w.message:"Unable to mark appointment as completed.");return}window.location.href=Vt("completed.html")}})();return}if(l==="delete"){(async()=>{if(!await Nt("Are you sure you want to delete this appointment? This action cannot be undone.","Delete Appointment"))return;k=k.filter(P=>String(P.id)!==h),S=S.filter(P=>String(P.id)!==h),$="";const w=xt(k);p(w.unread),L()})();return}}const O=i.closest("[data-calendar-booking-id]");if(O instanceof HTMLElement&&!ge(i)){const l=String(O.dataset.calendarBookingId??"");if(!l)return;A=A===l?"":l,A!==l&&($=""),L()}});const z=Wt({onSubmit:async({mode:m,editingBookingId:i,name:r,phone:M,note:C,date:q,time:F,endTime:x,isAllDay:K,color:O,service:l,licensePlate:h,isSimpleAppointment:T})=>{if(!o)throw new Error("Geen garage beschikbaar.");if(m==="edit"&&i){const w=S.find(E=>String(E.id)===i)??k.find(E=>String(E.id)===i);if(!w)throw new Error("Appointment not found for editing.");const P=`${q}T${F}`,R=M||String(w.phone??"").trim()||"0000000000",it=C||ct,Q=T?l||"Simple appointment":l,J=T?"UNKNOWN":h||"UNKNOWN",j=[`Name: ${r}`,`AllDay: ${K?"true":"false"}`,`End: ${x}`,`Message: ${it}`].join(`
+`);await Tt(w,P),await Ct(w,{name:r,phone:R,message:j,color:O,service:Q,licensePlate:J}),k=G(k.map(E=>String(E.id)===i?{...E,appointmentAt:P,name:r,color:O,message:j,service:Q,licensePlate:J}:E)),S=G(S.map(E=>String(E.id)===i?{...E,appointmentAt:P,name:r,color:O,message:j,service:Q,licensePlate:J}:E))}else await oe({garageId:o,name:r,licensePlate:T?"UNKNOWN":h||"UNKNOWN",phone:M||"0000000000",service:T?l||"Simple appointment":l||"Service",message:`Name: ${r}
+AllDay: ${K?"true":"false"}
+End: ${x}
+Message: ${C||ct}`,color:O,appointmentAt:`${q}T${F}`}),k=G(await Et({garageIds:n})),S=G(k.filter(R=>R.inAppointments===!0&&!Pt(R)));const v=Y(`${q}T12:00:00`);v&&(y=v,D=new Date(v.getFullYear(),v.getMonth(),1)),L()}}),kt=()=>{const m=new URLSearchParams(window.location.search);m.delete("quickadd"),m.delete("quickaddEdit"),m.delete("editBookingId");const i=m.toString(),r=window.location.hash||"",M=`${window.location.pathname}${i?`?${i}`:""}${r}`;window.history.replaceState(null,"",M)},Kt=()=>{!Z||V||(z.openForCreate(I(y),"09:00"),kt())},Ot=()=>{if(!V)return;const m=S.find(i=>String(i.id)===V)??k.find(i=>String(i.id)===V);if(m){const i=Y(m.appointmentAt??m.createdAt);i&&(y=i,D=new Date(i.getFullYear(),i.getMonth(),1),B="day",A=String(m.id??""),$=String(m.id??""),L()),z.openForEdit(m)}kt()};a.addEventListener("click",m=>{const i=m.target instanceof Element?m.target:null;if(!i)return;const r=i.closest(".day-slot-row");if(r instanceof HTMLElement){const M=r.querySelector(".day-slot-time"),C=M instanceof HTMLElement?(M.textContent??"").trim():"",q=Date.now(),F=m.detail>=2||q-nt<550&&wt===C;if(nt=q,wt=C,F){if(nt=0,r.classList.contains("has-booking")){const x=i.closest("[data-day-slot-booking-id]"),K=r.querySelector("[data-day-slot-booking-id]"),O=String((x instanceof HTMLElement?x.dataset.daySlotBookingId:K instanceof HTMLElement?K.dataset.daySlotBookingId:"")??""),l=S.find(h=>String(h.id)===O);if(l){z.openForEdit(l);return}}z.openForCreate(I(y),C||"09:00")}}}),Kt();try{k=await Et({garageIds:n});const m=new Set(k.map(r=>r.licensePlate).filter(r=>r&&r!=="UNKNOWN").map(r=>bt(r)));for(const r of m)if(r&&!tt.has(r))try{const M=await ie(r);M&&tt.set(r,M)}catch(M){console.error(`Failed to fetch vehicle for ${r}:`,M)}S=G(k.filter(r=>r.inAppointments===!0&&!Pt(r)));const i=xt(k);p(i.unread),L(),Ot()}catch(m){a.innerHTML='<p class="muted">Unable to load calendar right now.</p>',H.innerHTML='<article class="request-card"><p class="muted">Unable to load appointments.</p></article>',p(0),console.error(m)}}const xe=document.querySelector("#app");_t();Ce(xe);
 
-  const boardBodyElement = contentArea.querySelector("#calendarBoardBody");
-  const periodLabelElement = contentArea.querySelector("#calendarPeriodLabel");
-  const modeMonthElement = contentArea.querySelector("#calendarModeMonth");
-  const modeDayElement = contentArea.querySelector("#calendarModeDay");
-  const dayTitleElement = contentArea.querySelector("#calendarDayTitle");
-  const dayCountElement = contentArea.querySelector("#calendarDayCount");
-  const dayListElement = contentArea.querySelector("#calendarDayList");
-
-  let allBookings = [];
-  let activeBookings = [];
-  let selectedDate = new Date();
-  let currentMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-  let activeMode = "month";
-  let expandedBookingId = "";
-  let editingBookingId = "";
-  let lastRenderedMode = "";
-  let lastRenderedDayKey = "";
-  const vehicleCache = new Map();
-
-  const bookingsForSelectedDate = () => {
-    const selectedKey = toDateKey(selectedDate);
-
-    return activeBookings
-      .filter((booking) => bookingDateKey(booking) === selectedKey)
-      .sort(
-        (left, right) =>
-          new Date(left.appointmentAt ?? left.createdAt).getTime() -
-          new Date(right.appointmentAt ?? right.createdAt).getTime(),
-      );
-  };
-
-  const render = () => {
-    const selectedKey = toDateKey(selectedDate);
-    const dayBookings = bookingsForSelectedDate();
-    const shouldAutoScrollDayBoard =
-      activeMode === "day" &&
-      (lastRenderedMode !== "day" || lastRenderedDayKey !== selectedKey);
-
-    modeMonthElement.classList.toggle("is-active", activeMode === "month");
-    modeDayElement.classList.toggle("is-active", activeMode === "day");
-
-    if (expandedBookingId && !dayBookings.some((booking) => String(booking.id) === expandedBookingId)) {
-      expandedBookingId = "";
-      editingBookingId = "";
-    }
-
-    if (editingBookingId && !dayBookings.some((booking) => String(booking.id) === editingBookingId)) {
-      editingBookingId = "";
-    }
-
-    if (activeMode === "month") {
-      periodLabelElement.textContent = formatMonthLabel(currentMonth);
-      boardBodyElement.innerHTML = monthGridMarkup(currentMonth, activeBookings, selectedKey);
-    } else {
-      periodLabelElement.textContent = formatDayTitle(selectedDate);
-      boardBodyElement.innerHTML = dayBoardMarkup(selectedDate, dayBookings);
-
-      if (shouldAutoScrollDayBoard) {
-        window.requestAnimationFrame(() => {
-          const dayBoardList = boardBodyElement.querySelector(".day-board-list");
-          if (!(dayBoardList instanceof HTMLElement)) {
-            return;
-          }
-
-          const firstBookingRow = dayBoardList.querySelector(".day-slot-row.has-booking");
-          if (firstBookingRow instanceof HTMLElement) {
-            const boardRect = boardBodyElement.getBoundingClientRect();
-            const rowRect = firstBookingRow.getBoundingClientRect();
-            const nextTop = boardBodyElement.scrollTop + (rowRect.top - boardRect.top) - 8;
-            boardBodyElement.scrollTo({ top: Math.max(0, nextTop), behavior: "auto" });
-          } else {
-            boardBodyElement.scrollTo({ top: 0, behavior: "auto" });
-          }
-        });
-      }
-    }
-
-    dayTitleElement.textContent = formatCalendarDayTitle(selectedDate);
-    dayCountElement.textContent = `${dayBookings.length} appointment${dayBookings.length === 1 ? "" : "s"}`;
-    dayListElement.innerHTML = selectedDayCardsMarkup(dayBookings, expandedBookingId, editingBookingId, vehicleCache);
-
-    lastRenderedMode = activeMode;
-    lastRenderedDayKey = selectedKey;
-  };
-
-  contentArea.addEventListener("click", async (event) => {
-    const target = event.target instanceof Element ? event.target : null;
-    if (!target) {
-      return;
-    }
-
-    if (handleScheduleTimePickerInteraction(contentArea, target)) {
-      return;
-    }
-
-    const navButton = target.closest("[data-calendar-nav]");
-    if (navButton instanceof HTMLElement) {
-      const direction = navButton.dataset.calendarNav;
-
-      if (activeMode === "month") {
-        const next = new Date(currentMonth);
-        next.setMonth(currentMonth.getMonth() + (direction === "next" ? 1 : -1));
-        currentMonth = new Date(next.getFullYear(), next.getMonth(), 1);
-      } else {
-        const nextDay = new Date(selectedDate);
-        nextDay.setDate(selectedDate.getDate() + (direction === "next" ? 1 : -1));
-        selectedDate = nextDay;
-        currentMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-      }
-
-      render();
-      return;
-    }
-
-    const modeButton = target.closest("[data-calendar-mode]");
-    if (modeButton instanceof HTMLElement) {
-      activeMode = modeButton.dataset.calendarMode === "day" ? "day" : "month";
-      render();
-      return;
-    }
-
-    const dayCell = target.closest("[data-calendar-cell]");
-    if (dayCell instanceof HTMLElement) {
-      const rawKey = dayCell.dataset.calendarCell;
-      if (rawKey) {
-        const nextDate = parseDate(`${rawKey}T12:00:00`);
-        if (nextDate) {
-          selectedDate = nextDate;
-          currentMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-          render();
-        }
-      }
-      return;
-    }
-
-    const daySlotBookingItem = target.closest("[data-day-slot-booking-id]");
-    if (daySlotBookingItem instanceof HTMLElement) {
-      const bookingId = String(daySlotBookingItem.dataset.daySlotBookingId ?? "");
-      if (bookingId) {
-        expandedBookingId = bookingId;
-        editingBookingId = "";
-        render();
-
-        window.requestAnimationFrame(() => {
-          const matchingCard = [...dayListElement.querySelectorAll("[data-calendar-booking-id]")]
-            .find((card) => card instanceof HTMLElement && String(card.dataset.calendarBookingId ?? "") === bookingId);
-
-          if (matchingCard instanceof HTMLElement) {
-            matchingCard.scrollIntoView({ behavior: "smooth", block: "start" });
-          }
-        });
-      }
-      return;
-    }
-
-    const toggleButton = target.closest("[data-calendar-toggle]");
-    if (toggleButton instanceof HTMLElement) {
-      const bookingId = String(toggleButton.dataset.calendarToggle ?? "");
-      expandedBookingId = expandedBookingId === bookingId ? "" : bookingId;
-      if (expandedBookingId !== bookingId) {
-        editingBookingId = "";
-      }
-      render();
-      return;
-    }
-
-    const actionButton = target.closest("[data-calendar-action]");
-    if (actionButton instanceof HTMLElement) {
-      const action = String(actionButton.dataset.calendarAction ?? "");
-      const bookingId = String(actionButton.dataset.bookingId ?? "");
-      if (!bookingId) {
-        return;
-      }
-
-      if (action === "edit") {
-        expandedBookingId = bookingId;
-        editingBookingId = editingBookingId === bookingId ? "" : bookingId;
-        render();
-        return;
-      }
-
-      if (action === "cancel-edit") {
-        editingBookingId = "";
-        render();
-        return;
-      }
-
-      if (action === "save-schedule") {
-        const card = actionButton.closest("[data-calendar-booking-id]");
-        if (!(card instanceof HTMLElement)) {
-          return;
-        }
-
-        const booking = activeBookings.find((item) => String(item.id) === bookingId);
-        if (!booking) {
-          return;
-        }
-
-        const dateInput = card.querySelector("[data-schedule-edit-date]");
-        const timeInput = card.querySelector("[data-schedule-edit-time]");
-        if (!(dateInput instanceof HTMLInputElement) || !(timeInput instanceof HTMLInputElement)) {
-          return;
-        }
-
-        const nextAppointmentAt = buildAppointmentAtValue(dateInput.value, timeInput.value);
-        if (!nextAppointmentAt) {
-          return;
-        }
-
-        try {
-          await persistBookingSchedule(booking, nextAppointmentAt);
-        } catch (error) {
-          window.alert(error instanceof Error ? error.message : "Unable to save the appointment schedule.");
-          return;
-        }
-
-        allBookings = sortBookingsByAppointment(
-          allBookings.map((item) =>
-            String(item.id) === bookingId
-              ? {
-                ...item,
-                appointmentAt: nextAppointmentAt,
-              }
-              : item,
-          ),
-        );
-
-        activeBookings = sortBookingsByAppointment(
-          activeBookings.map((item) =>
-            String(item.id) === bookingId
-              ? {
-                ...item,
-                appointmentAt: nextAppointmentAt,
-              }
-              : item,
-          ),
-        );
-
-        const nextSelectedDate = parseDate(nextAppointmentAt);
-        if (nextSelectedDate) {
-          selectedDate = nextSelectedDate;
-          currentMonth = new Date(nextSelectedDate.getFullYear(), nextSelectedDate.getMonth(), 1);
-        }
-
-        editingBookingId = "";
-        expandedBookingId = bookingId;
-        render();
-        return;
-      }
-
-      const booking = activeBookings.find((item) => String(item.id) === bookingId);
-      if (!booking) {
-        return;
-      }
-
-      render();
-      return;
-    }
-
-    const requestActionButton = target.closest("[data-request-action]");
-    if (requestActionButton instanceof HTMLElement) {
-      const action = String(requestActionButton.dataset.requestAction ?? "");
-      const bookingId = String(requestActionButton.dataset.bookingId ?? "");
-      if (!bookingId) {
-        return;
-      }
-
-      const booking = activeBookings.find((item) => String(item.id) === bookingId);
-      if (!booking) {
-        return;
-      }
-
-      if (action === "complete") {
-        (async () => {
-          const confirmed = await showConfirmDialog(
-            "Are you sure you want to mark this appointment as completed?",
-            "Mark as Completed"
-          );
-          if (!confirmed) return;
-
-          try {
-            await markBookingDone(booking, {
-              convertedFromEmail: booking.source !== "manual",
-            });
-          } catch (error) {
-            window.alert(error instanceof Error ? error.message : "Unable to mark appointment as completed.");
-            return;
-          }
-
-          window.location.href = pageUrl("completed.html");
-        })();
-        return;
-      }
-
-      if (action === "delete") {
-        (async () => {
-          const confirmed = await showConfirmDialog(
-            "Are you sure you want to delete this appointment? This action cannot be undone.",
-            "Delete Appointment"
-          );
-          if (!confirmed) return;
-
-          allBookings = allBookings.filter((item) => String(item.id) !== bookingId);
-          activeBookings = activeBookings.filter((item) => String(item.id) !== bookingId);
-
-          editingBookingId = "";
-
-          const inboxSummary = summarizeEmailInbox(allBookings);
-          setUnreadEmailCount(inboxSummary.unread);
-
-          render();
-        })();
-        return;
-      }
-    }
-
-    const cardElement = target.closest("[data-calendar-booking-id]");
-    if (cardElement instanceof HTMLElement && !isInteractiveClick(target)) {
-      const bookingId = String(cardElement.dataset.calendarBookingId ?? "");
-      if (!bookingId) {
-        return;
-      }
-
-      expandedBookingId = expandedBookingId === bookingId ? "" : bookingId;
-      if (expandedBookingId !== bookingId) {
-        editingBookingId = "";
-      }
-      render();
-    }
-  });
-
-  try {
-    allBookings = await getBookings({ garageIds });
-
-    // Pre-fetch all vehicle data before rendering
-    const uniqueLicensePlates = new Set(
-      allBookings
-        .map((b) => b.licensePlate)
-        .filter((plate) => plate && plate !== "UNKNOWN")
-        .map((plate) => normalizeLicensePlate(plate))
-    );
-
-    for (const licensePlate of uniqueLicensePlates) {
-      if (licensePlate && !vehicleCache.has(licensePlate)) {
-        try {
-          const vehicle = await fetchVehicleByLicensePlate(licensePlate);
-          if (vehicle) vehicleCache.set(licensePlate, vehicle);
-        } catch (error) {
-          console.error(`Failed to fetch vehicle for ${licensePlate}:`, error);
-        }
-      }
-    }
-
-    activeBookings = sortBookingsByAppointment(
-      allBookings.filter((booking) => booking.inAppointments === true && !isCompletedBooking(booking)),
-    );
-
-    const inboxSummary = summarizeEmailInbox(allBookings);
-    setUnreadEmailCount(inboxSummary.unread);
-
-    render();
-  } catch (error) {
-    boardBodyElement.innerHTML = '<p class="muted">Unable to load calendar right now.</p>';
-    dayListElement.innerHTML = '<article class="request-card"><p class="muted">Unable to load appointments.</p></article>';
-    setUnreadEmailCount(0);
-    console.error(error);
-  }
-}

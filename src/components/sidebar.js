@@ -17,15 +17,8 @@ const NAV_LINKS = [
     label: "Werkbon",
     icon: "werkbon",
   },
-  {
-    key: "addappointment",
-    href: pageUrl("add-appointment.html"),
-    label: "Add Appointment",
-    icon: "addappointment",
-  },
   { key: "emails", href: pageUrl("emails.html"), label: "E-mails", icon: "emails", showUnreadBadge: true },
   { key: "analytics", href: pageUrl("analytics.html"), label: "Analytics", icon: "analytics" },
-    { key: "settings", href: pageUrl("settings.html"), label: "Instellingen", icon: "settings" },
 ];
 
 const SIDEBAR_ICON_SRC = {
@@ -34,11 +27,9 @@ const SIDEBAR_ICON_SRC = {
   calendar: assetUrl("sidebar-icons/calender.png"),
   completed: assetUrl("sidebar-icons/succes.png"),
   werkbon: assetUrl("sidebar-icons/werkbon.png"),
-  addappointment: assetUrl("sidebar-icons/addappointment.png"),
   emails: assetUrl("sidebar-icons/email.png"),
   analytics: assetUrl("sidebar-icons/analytics.png"),
   default: assetUrl("sidebar-icons/default.png"),
-    settings: assetUrl("sidebar-icons/default.png"),
 };
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "garage-dashboard.sidebar-collapsed";
@@ -197,6 +188,7 @@ export function createSidebar(
   }
 
   const logoutButton = sidebar.querySelector(".sidebar-logout");
+  const settingsButton = sidebar.querySelector(".sidebar-footer-action");
   const collapseButton = sidebar.querySelector(".sidebar-collapse-toggle");
 
   const applyCollapsedState = (collapsed) => {
@@ -212,6 +204,10 @@ export function createSidebar(
 
   collapseButton?.addEventListener("click", () => {
     applyCollapsedState(!sidebar.classList.contains("is-collapsed"));
+  });
+
+  settingsButton?.addEventListener("click", () => {
+    window.location.href = pageUrl("settings.html");
   });
 
   if (typeof onLogout === "function") {

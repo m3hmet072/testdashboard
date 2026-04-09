@@ -12,7 +12,7 @@ do $$
 begin
   if to_regclass('public.completed_appointments') is not null then
     execute $sql$
-      create or replace view public.werkbonnen as
+      create or replace view public.werkbonnen with (security_invoker = on) as
       select
         ca.id                                                                           as werkbon_id,
         ca.garage_id,
@@ -26,7 +26,14 @@ begin
         (ca.completion_notes::jsonb ->> 'status')                                       as invoice_status,
         (ca.completion_notes::jsonb ->> 'paid_at')                                      as paid_at,
 
-        (ca.completion_notes::jsonb ->> 'customer_name')                                as customer_name,
+        coalesce(
+          nullif(trim(ca.customer_name), ''),
+          nullif(trim(ca.completion_notes::jsonb ->> 'customer_name'), ''),
+          nullif(trim(ca.completion_notes::jsonb ->> 'customerName'), ''),
+          nullif(trim(b.name), ''),
+          nullif(trim(ca.license_plate), ''),
+          'UNKNOWN'
+        )                                                                               as customer_name,
         (ca.completion_notes::jsonb ->> 'customer_phone')                               as customer_phone,
         (ca.completion_notes::jsonb ->> 'customer_email')                               as customer_email,
 
@@ -51,11 +58,12 @@ begin
         coalesce((ca.completion_notes::jsonb ->> 'werkbon_created')::boolean,    false) as werkbon_created
 
       from public.completed_appointments ca
+      left join public.bookings b on b.id = ca.booking_id
       where ca.completion_notes is not null
     $sql$;
   else
     execute $sql$
-      create or replace view public.werkbonnen as
+      create or replace view public.werkbonnen with (security_invoker = on) as
       select
         null::uuid        as werkbon_id,
         null::uuid        as garage_id,

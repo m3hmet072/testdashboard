@@ -24,6 +24,7 @@ create table if not exists public.completed_appointments (
   appointment_time time,
 
   -- Snelzoek-kolommen (ook aanwezig in completion_notes JSON)
+  customer_name    text,
   license_plate    text,
   service          text,
 
@@ -55,11 +56,40 @@ create table if not exists public.completed_appointments (
   created_at       timestamptz not null default now()
 );
 
+alter table public.completed_appointments
+  add column if not exists customer_name text;
+
 create index if not exists completed_appointments_garage_completed_at_idx
   on public.completed_appointments (garage_id, completed_at desc);
 
 create index if not exists completed_appointments_booking_id_idx
   on public.completed_appointments (booking_id);
+
+create index if not exists completed_appointments_customer_name_idx
+  on public.completed_appointments (customer_name);
+
+-- Backfill customer_name for existing rows.
+update public.completed_appointments ca
+set customer_name = coalesce(
+  nullif(trim((ca.completion_notes::jsonb ->> 'customer_name')), ''),
+  nullif(trim((ca.completion_notes::jsonb ->> 'customerName')), ''),
+  nullif(trim(b.name), ''),
+  nullif(trim(ca.license_plate), ''),
+  'UNKNOWN'
+)
+from public.bookings b
+where ca.booking_id is not null
+  and ca.booking_id = b.id
+  and coalesce(nullif(trim(ca.customer_name), ''), '') = '';
+
+update public.completed_appointments ca
+set customer_name = coalesce(
+  nullif(trim((ca.completion_notes::jsonb ->> 'customer_name')), ''),
+  nullif(trim((ca.completion_notes::jsonb ->> 'customerName')), ''),
+  nullif(trim(ca.license_plate), ''),
+  'UNKNOWN'
+)
+where coalesce(nullif(trim(ca.customer_name), ''), '') = '';
 
 -- Voeg de FK pas toe als public.bookings bestaat.
 -- Zo crasht dit script niet als iemand de files in een andere volgorde uitvoert.
@@ -93,7 +123,22 @@ security definer
 set search_path = public
 as $$
 begin
-  if new.booking_id is not null and to_regclass('public.bookings') is not null then
+  if coalesce(nullif(trim(new.customer_name), ''), '') = '' then
+    new.customer_name := coalesce(
+      nullif(trim((new.completion_notes::jsonb ->> 'customer_name')), ''),
+      nullif(trim((new.completion_notes::jsonb ->> 'customerName')), ''),
+      (
+        select nullif(trim(b.name), '')
+        from public.bookings b
+        where b.id = new.booking_id
+        limit 1
+      ),
+      nullif(trim(new.license_plate), ''),
+      'UNKNOWN'
+    );
+  end if;
+
+  if tg_op = 'INSERT' and new.booking_id is not null and to_regclass('public.bookings') is not null then
     execute
       'update public.bookings
        set status = ''done''
@@ -107,7 +152,7 @@ $$;
 drop trigger if exists trg_booking_mark_done on public.completed_appointments;
 
 create trigger trg_booking_mark_done
-  after insert on public.completed_appointments
+  before insert or update on public.completed_appointments
   for each row
   execute function public.fn_booking_mark_done();
 
