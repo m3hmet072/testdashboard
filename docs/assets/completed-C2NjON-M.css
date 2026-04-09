@@ -1,0 +1,1 @@
+.view-werkbon{background:#e3f2fd;color:#1976d2;border:1px solid #90caf9}.view-werkbon:hover{background:#bbdefb;color:#0d47a1;border:1px solid #64b5f6}.time-done-box{display:flex;align-items:center;gap:8px}@media (max-width: 768px){.time-done-box{flex-wrap:wrap;gap:6px}}@media (max-width: 375px){.time-done-box{width:100%}}

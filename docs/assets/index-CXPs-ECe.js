@@ -1,4 +1,4 @@
-import{s as d,i as p,n as m}from"./theme-DNexrY8-.js";import{g as b,p as l,s as f,i as w}from"./paths-Bl2pEuTT.js";function y(){return`
+import{s as d,i as p,n as m}from"./theme-DS55tFGy.js";import{g as b,p as l,s as f,i as w}from"./paths-DtYyGJzl.js";function y(){return`
     <section class="auth-card page-animate">
       <div class="auth-theme-row">
         <label class="theme-switcher" aria-label="Night mode">
