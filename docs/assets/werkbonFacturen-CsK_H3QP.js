@@ -1,4 +1,4 @@
-import"./theme-8bHWXU28.js";/* empty css                         */import{m as p}from"./werkbonSubPageFactory-o_0SnB8B.js";import"./auth-BjeLGIG2.js";import"./paths-D6ujGOT0.js";function c(t){return new Intl.NumberFormat("nl-NL",{style:"currency",currency:"EUR",minimumFractionDigits:2}).format(Number(t)||0)}function l(t){const n=new Date(t);return Number.isNaN(n.getTime())?"-":n.toLocaleDateString("nl-NL")}function f(t){return t==="betaald"?"status-chip-completed":t==="verzonden"?"status-chip-confirmed":t==="te laat"?"status-chip-late":"status-chip-progress"}function g(t){const n=window.open("","_blank","noopener,noreferrer");n&&(n.document.write(`
+import"./theme-8bHWXU28.js";/* empty css                         */import{m as p,r as f}from"./werkbonSubPageFactory-CdQJN28U.js";import"./auth-BjeLGIG2.js";import"./paths-D6ujGOT0.js";function i(t){return new Intl.NumberFormat("nl-NL",{style:"currency",currency:"EUR",minimumFractionDigits:2}).format(Number(t)||0)}function c(t){const n=new Date(t);return Number.isNaN(n.getTime())?"-":n.toLocaleDateString("nl-NL")}function g(t){return t==="betaald"?"status-chip-completed":t==="verzonden"?"status-chip-confirmed":t==="te laat"?"status-chip-late":"status-chip-progress"}function h(t){const n=window.open("","_blank","noopener,noreferrer");n&&(n.document.write(`
     <!doctype html>
     <html>
       <head>
@@ -12,9 +12,9 @@ import"./theme-8bHWXU28.js";/* empty css                         */import{m as p
       <body>
         <h1>Factuur ${t.factuurnummer}</h1>
         <p><strong>Klant:</strong> ${t.klantnaam}</p>
-        <p><strong>Datum:</strong> ${l(t.datum)}</p>
+        <p><strong>Datum:</strong> ${c(t.datum)}</p>
         <p><strong>Status:</strong> ${t.status}</p>
-        <p><strong>Totaal:</strong> ${c(t.totaalInclBTW)}</p>
+        <p><strong>Totaal:</strong> ${i(t.totaalInclBTW)}</p>
       </body>
     </html>
   `),n.document.close(),n.focus(),n.print())}function k({store:t}={}){var b;const n=document.createElement("section");if(n.className="werkbon-section panel page-animate",!t)return n.innerHTML='<p class="muted">Facturen kunnen niet geladen worden.</p>',n;let u=((b=t.getState().facturen[0])==null?void 0:b.id)??"";const d=()=>{const s=t.getState(),a=s.facturen.find(e=>e.id===u)??null,r=t.getOpenWerkbonnen();n.innerHTML=`
@@ -84,9 +84,9 @@ import"./theme-8bHWXU28.js";/* empty css                         */import{m as p
               <tr class="${u===e.id?"is-selected-row":""}">
                 <td><button class="werkbon-link-button" type="button" data-action="select" data-id="${e.id}">${e.factuurnummer}</button></td>
                 <td>${e.klantnaam}</td>
-                <td>${l(e.datum)}</td>
-                <td><span class="status-chip ${f(e.status)}">${e.status}</span></td>
-                <td>${c(e.totaalInclBTW)}</td>
+                <td>${c(e.datum)}</td>
+                <td><span class="status-chip ${g(e.status)}">${e.status}</span></td>
+                <td>${i(e.totaalInclBTW)}</td>
                 <td class="werkbon-inline-actions">
                   <button class="button subtle" type="button" data-action="set-status" data-id="${e.id}" data-status="betaald">Markeer betaald</button>
                   <button class="button subtle" type="button" data-action="export" data-id="${e.id}">Export PDF</button>
@@ -103,9 +103,9 @@ import"./theme-8bHWXU28.js";/* empty css                         */import{m as p
           <div class="werkbon-detail-grid">
             <p><strong>Factuurnummer:</strong> ${a.factuurnummer}</p>
             <p><strong>Klant:</strong> ${a.klantnaam}</p>
-            <p><strong>Datum:</strong> ${l(a.datum)}</p>
+            <p><strong>Datum:</strong> ${c(a.datum)}</p>
             <p><strong>Status:</strong> ${a.status}</p>
-            <p><strong>Totaal:</strong> ${c(a.totaalInclBTW)}</p>
+            <p><strong>Totaal:</strong> ${i(a.totaalInclBTW)}</p>
             <p><strong>Bron:</strong> ${a.bronWerkbonId?"Werkbon":"Handmatig"}</p>
           </div>
           <div class="werkbon-inline-actions">
@@ -116,4 +116,4 @@ import"./theme-8bHWXU28.js";/* empty css                         */import{m as p
           </div>
         `:'<p class="muted">Selecteer een factuur uit de lijst.</p>'}
       </article>
-    `};return d(),n.addEventListener("submit",s=>{const a=s.target;if(!(a instanceof HTMLFormElement)||a.dataset.form!=="manual-invoice")return;s.preventDefault();const r=new FormData(a);u=t.createManualFactuur({klantnaam:r.get("klantnaam"),datum:r.get("datum"),totaalInclBTW:Number(r.get("totaal")||0),btwPercentage:Number(r.get("btw")||21)}).id,d()}),n.addEventListener("click",s=>{const a=s.target;if(!(a instanceof HTMLElement))return;const r=a.closest("button[data-action]");if(!(r instanceof HTMLButtonElement))return;const e=String(r.dataset.action??""),o=String(r.dataset.id??"");if(e==="convert"&&o){const i=t.convertWerkbonToFactuur(o);i&&(u=i.id),d();return}if(e==="select"&&o){u=o,d();return}if(e==="set-status"&&o){t.updateFactuurStatus(o,r.dataset.status),u=o,d();return}if(e==="export"&&o){const i=t.getState().facturen.find(m=>m.id===o);i&&g(i)}}),n}const h=document.querySelector("#app");p(h,{title:"Werkbon - Facturen",note:"Bekijk en beheer facturen",createSection:k});
+    `};return d(),n.addEventListener("submit",s=>{const a=s.target;if(!(a instanceof HTMLFormElement)||a.dataset.form!=="manual-invoice")return;s.preventDefault();const r=new FormData(a);u=t.createManualFactuur({klantnaam:r.get("klantnaam"),datum:r.get("datum"),totaalInclBTW:Number(r.get("totaal")||0),btwPercentage:Number(r.get("btw")||21)}).id,d()}),n.addEventListener("click",s=>{const a=s.target;if(!(a instanceof HTMLElement))return;const r=a.closest("button[data-action]");if(!(r instanceof HTMLButtonElement))return;const e=String(r.dataset.action??""),o=String(r.dataset.id??"");if(e==="convert"&&o){const l=t.convertWerkbonToFactuur(o);l&&(u=l.id),d();return}if(e==="select"&&o){u=o,d();return}if(e==="set-status"&&o){t.updateFactuurStatus(o,r.dataset.status),u=o,d();return}if(e==="export"&&o){const l=t.getState().facturen.find(m=>m.id===o);l&&h(l)}}),n}const $=document.querySelector("#app");p($,{title:"Werkbon - Facturen",note:"Bekijk en beheer facturen",showTitleRow:!1,headerToolbarHtml:f(),createSection:k});
