@@ -37,6 +37,7 @@ jobs:
 
       - name: Build site
         run: |
+          cp .env.example .env
           npm run build
           if [ ! -d "docs" ]; then
             echo "ERROR: docs directory was not created after build"
