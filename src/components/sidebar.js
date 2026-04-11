@@ -4,7 +4,6 @@ import { assetUrl, pageUrl } from "../utils/paths.js";
 const NAV_LINKS = [
   { key: "dashboard", href: pageUrl("dashboard.html"), label: "Dashboard", icon: "dashboard" },
   { key: "calendar", href: pageUrl("calendar.html"), label: "Calendar", icon: "calendar" },
-  { key: "bookings", href: pageUrl("bookings.html"), label: "Appointment", icon: "appointments" },
   {
     key: "completed",
     href: pageUrl("completed.html"),

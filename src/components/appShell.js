@@ -10,11 +10,31 @@ const PREFETCH_DOCUMENTS = [
   "/bookings.html",
   "/completed.html",
   "/werkbon.html",
+  "/werkbon-artikelen.html",
+  "/werkbon-artikelen-menu.html",
+  "/werkbon-artikelen-nieuw.html",
+  "/werkbon-artikelen-zoek.html",
+  "/werkbon-artikelen-vind.html",
+  "/werkbon-artikelen-vind-alles.html",
+  "/werkbon-artikelen-lijst.html",
+  "/werkbon-artikelen-print.html",
+  "/werkbon-artikelen-import.html",
+  "/werkbon-artikelen-inboeken.html",
+  "/werkbon-artikelen-waarde.html",
+  "/werkbon-artikelen-verwijder.html",
+  "/werkbon-artikelen-eerste.html",
+  "/werkbon-artikelen-vorige.html",
+  "/werkbon-artikelen-volgende.html",
+  "/werkbon-artikelen-laatste.html",
+  "/werkbon-facturen.html",
+  "/werkbon-omzet-btw.html",
+  "/werkbon-instellingen.html",
   "/werkbon-detail.html",
   "/add-appointment.html",
   "/emails.html",
   "/analytics.html",
   "/settings.html",
+  "/success-paid.html",
 ];
 
 function warmNavigationDocuments() {
@@ -45,6 +65,7 @@ export function createAppShell({
   activePage,
   title,
   headerNote = "",
+  showTitleRow = true,
   userEmail,
   unreadEmailCount = 0,
   onLogout,
@@ -76,7 +97,11 @@ export function createAppShell({
   mainContent.className = "main-content";
   mainContent.append(header, workspace);
 
-  workspace.append(titleRow, contentArea);
+  if (showTitleRow) {
+    workspace.append(titleRow, contentArea);
+  } else {
+    workspace.append(contentArea);
+  }
   shell.append(sidebar, mainContent);
 
   // Mobile sidebar overlay
