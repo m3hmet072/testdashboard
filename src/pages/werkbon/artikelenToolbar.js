@@ -20,10 +20,12 @@ export function renderArtikelenToolbar() {
   return `
     <div class="werkbon-legacy-toolbar" role="toolbar" aria-label="Artikelen acties">
       ${TOOLBAR_ITEMS.map((item) => `
-        <a class="werkbon-legacy-toolbtn" href="${item.href}">
-          <span class="werkbon-legacy-toolbtn-icon" aria-hidden="true">${item.icon}</span>
+        <div class="werkbon-legacy-toolitem">
+          <a class="werkbon-legacy-toolbtn" href="${item.href}" aria-label="${item.label}">
+            <span class="werkbon-legacy-toolbtn-icon" aria-hidden="true">${item.icon}</span>
+          </a>
           <span class="werkbon-legacy-toolbtn-label">${item.label}</span>
-        </a>
+        </div>
       `).join("")}
     </div>
   `;

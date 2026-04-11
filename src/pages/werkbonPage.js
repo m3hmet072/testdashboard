@@ -94,27 +94,29 @@ export async function mountWerkbonPage(rootElement) {
 
   rootElement.innerHTML = `
     <main class="werkbon-standalone page-animate" role="main">
-      <section class="werkbon-page-shell werkbon-choice-shell werkbon-standalone-shell">
-        <div class="werkbon-back-row">
-          <a class="button subtle" href="./dashboard.html">← Terug naar Dashboard</a>
+      <section class="werkbon-standalone-shell">
+        <div class="werkbon-page-shell werkbon-choice-shell">
+          <div class="werkbon-back-row">
+            <a class="button subtle" href="./dashboard.html">← Terug naar Dashboard</a>
+          </div>
+
+          <header class="werkbon-section-header panel werkbon-choice-hero">
+            <h1 class="werkbon-title">Kies een onderdeel</h1>
+            <p class="muted">Open direct de module die je nodig hebt.</p>
+          </header>
+
+          <section class="panel werkbon-menu-list werkbon-choice-list">
+            ${WERKBON_PAGES.map((item) => `
+              <a class="werkbon-menu-item" href="${item.href}">
+                <span class="werkbon-menu-item-icon">${iconMarkup(item.icon)}</span>
+                <span class="werkbon-menu-item-copy">
+                  <strong>${item.label}</strong>
+                </span>
+                <span class="werkbon-menu-item-arrow" aria-hidden="true">→</span>
+              </a>
+            `).join("")}
+          </section>
         </div>
-
-        <header class="werkbon-section-header panel werkbon-choice-hero">
-          <h1 class="werkbon-title">Kies een onderdeel</h1>
-          <p class="muted">Open direct de module die je nodig hebt.</p>
-        </header>
-
-        <section class="panel werkbon-menu-list werkbon-choice-list">
-          ${WERKBON_PAGES.map((item) => `
-            <a class="werkbon-menu-item" href="${item.href}">
-              <span class="werkbon-menu-item-icon">${iconMarkup(item.icon)}</span>
-              <span class="werkbon-menu-item-copy">
-                <strong>${item.label}</strong>
-              </span>
-              <span class="werkbon-menu-item-arrow" aria-hidden="true">→</span>
-            </a>
-          `).join("")}
-        </section>
       </section>
     </main>
   `;

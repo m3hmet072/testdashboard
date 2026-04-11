@@ -31,27 +31,27 @@ export async function mountWerkbonSubPage(rootElement, {
     return;
   }
 
-  void showTitleRow;
-
   const store = createWerkbonStore();
   const section = createSection({ store });
 
   rootElement.innerHTML = `
     <main class="werkbon-standalone page-animate" role="main">
-      <section class="werkbon-page-shell werkbon-choice-shell werkbon-standalone-shell">
-        <div class="werkbon-back-row">
-          <a class="button subtle" href="./werkbon.html">← Terug naar Werkbon</a>
+      <section class="werkbon-standalone-shell">
+        <div class="werkbon-page-shell werkbon-choice-shell">
+          <div class="werkbon-back-row">
+            <a class="button subtle" href="./werkbon.html">← Terug naar Werkbon</a>
+          </div>
+          <header class="werkbon-section-header panel werkbon-choice-hero">
+            ${showTitleRow ? `<h1 class="werkbon-title">${title}</h1>` : ""}
+            ${showTitleRow && note ? `<p class="muted">${note}</p>` : ""}
+            <div class="werkbon-header-extra" data-header-extra>${headerToolbarHtml}</div>
+          </header>
         </div>
-        <header class="werkbon-section-header panel werkbon-choice-hero">
-          <h1 class="werkbon-title">${title}</h1>
-          ${note ? `<p class="muted">${note}</p>` : ""}
-          <div class="werkbon-header-extra" data-header-extra>${headerToolbarHtml}</div>
-        </header>
       </section>
     </main>
   `;
 
-  const shell = rootElement.querySelector(".werkbon-standalone-shell");
+  const shell = rootElement.querySelector(".werkbon-page-shell");
   if (shell) {
     shell.append(section);
   }
